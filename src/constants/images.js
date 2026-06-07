@@ -27,7 +27,7 @@ export const LANDMARK_IMAGES = {
 
   // ── KOMPLEX D ───────────────────
   Jepang:            `${BASE}/Jepang.jpeg`,
-  Korea:            `${BASE}/Korea.jpg`,
+  Korea:            `${BASE}/Korea.jpeg`,
   India:          `${BASE}/India.jpeg`,
 
   // ── KOMPLEX E — Eropa Timur & Tengah ─────────────────────

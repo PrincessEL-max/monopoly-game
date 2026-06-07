@@ -111,23 +111,30 @@ export default function Square({
           </>
         ) : (
           <>
-            {/* Non-properti: ikon + nama + (gambar) + harga pajak */}
-            <div className="sq__header--type">
-              <span className="sq__type-icon">{TYPE_ICON[type]}</span>
-              <span className="sq__name-type">{name}</span>
-            </div>
+            {/* Non-properti: gambar FULL satu kotak, teks overlay di bawah */}
             {imgSrc ? (
-              <img
-                src={imgSrc}
-                alt={name}
-                className="sq__img"
-                draggable={false}
-                onError={(e) => { e.currentTarget.style.display = 'none'; }}
-              />
+              <div className="sq__full-img-wrap">
+                <img
+                  src={imgSrc}
+                  alt={name}
+                  className="sq__full-img"
+                  draggable={false}
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                />
+                <div className="sq__full-img-overlay">
+                  <span className="sq__type-icon-overlay">{TYPE_ICON[type]}</span>
+                  <span className="sq__name-overlay">{name}</span>
+                  {priceLabel && <span className="sq__price-overlay">{priceLabel}</span>}
+                </div>
+              </div>
             ) : (
-              <div className="sq__img sq__img--empty" />
+              /* Fallback tanpa gambar */
+              <div className="sq__header--type">
+                <span className="sq__type-icon">{TYPE_ICON[type]}</span>
+                <span className="sq__name-type">{name}</span>
+                {priceLabel && <div className="sq__price">{priceLabel}</div>}
+              </div>
             )}
-            {priceLabel && <div className="sq__price">{priceLabel}</div>}
           </>
         )}
       </div>
