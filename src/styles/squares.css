@@ -1,0 +1,1076 @@
+/* ============================================================
+   squares.css — Full styling petak biasa & sudut
+   Dipakai: Square.jsx, CornerSquare.jsx
+   ============================================================ */
+
+/* ── BASE ────────────────────────────────────────────────────── */
+
+.sq {
+  position: relative;
+  overflow: hidden;
+  background: #f5f0e8;
+  border: 1px solid #bbb;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* Highlight saat pemain landing */
+.sq--highlighted {
+  outline: 2px solid #ff9800;
+  outline-offset: -2px;
+  z-index: 5;
+  animation: sq-pulse 0.75s ease-in-out infinite alternate;
+}
+
+@keyframes sq-pulse {
+  from { box-shadow: inset 0 0 0 2px rgba(255,152,0,0.35); }
+  to   { box-shadow: inset 0 0 0 5px rgba(255,152,0,0.75); }
+}
+
+/* Diagonal lines overlay saat digadai */
+.sq--mortgaged::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(80,80,80,0.22) 0px,
+    rgba(80,80,80,0.22) 2px,
+    transparent 2px,
+    transparent 9px
+  );
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* ── TYPE BACKGROUNDS ────────────────────────────────────────── */
+/* Background sesuai tipe (hanya jika tidak ada strip komplex) */
+
+.sq--type-airport         { background: #e8eaf6; }
+.sq--type-utility         { background: #e0f7fa; }
+.sq--type-chance          { background: #fff3e0; }
+.sq--type-community_chest { background: #fce4ec; }
+.sq--type-tax             { background: #ede7f6; }
+
+/* ============================================================
+   STRIP WARNA KOMPLEX
+   Posisi menghadap CENTER board per sisi:
+     bottom → strip di ATAS  (h=16px, lebar penuh)
+     top    → strip di BAWAH (h=16px, lebar penuh) [karena column-reverse]
+     left   → strip di KANAN (w=14px, tinggi penuh) [karena row-reverse]
+     right  → strip di KIRI  (w=14px, tinggi penuh)
+   ============================================================ */
+
+.sq-strip {
+  flex-shrink: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Portrait (bottom/top) — strip horizontal */
+.sq-strip--h {
+  width: 100%;
+  height: 16px;
+  flex-direction: row;
+}
+
+/* Landscape (left/right) — strip vertikal */
+.sq-strip--v {
+  height: 100%;
+  width: 14px;
+  flex-direction: column;
+}
+
+/* ── Bangunan di dalam strip ─────────────────────────────────── */
+
+.sq-bld-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.sq-bld-row--h { flex-direction: row; }
+.sq-bld-row--v { flex-direction: column; }
+
+/* Base building element */
+.sq-bld {
+  display: inline-block;
+  flex-shrink: 0;
+  border-radius: 1px;
+}
+
+/* Rumah: kotak hijau kecil */
+.sq-bld--house {
+  display: inline-block;
+  width:  8px;
+  height: 7px;
+  background: #2e7d32;
+  border: 1px solid rgba(255,255,255,0.6);
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+
+/* Hotel: kotak merah sedikit lebih besar */
+.sq-bld--hotel {
+  display: inline-block;
+  width:  10px;
+  height: 8px;
+  background: #c62828;
+  border: 1px solid rgba(255,255,255,0.6);
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   LAYOUT PER SISI
+   ============================================================ */
+
+/* ── BOTTOM (pos 1–9): strip di atas, konten di bawah ───────── */
+/* Cell: ~62px lebar × 100px tinggi  */
+
+.sq--bottom {
+  display: flex;
+  flex-direction: column;
+}
+
+.sq--bottom .sq-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 2px 1px;
+  overflow: hidden;
+  min-height: 0;
+  gap: 1px;
+}
+
+/* ── TOP (pos 21–29): strip di bawah, konten di atas ────────── */
+/* column-reverse: body muncul di atas, strip di bawah           */
+
+.sq--top {
+  display: flex;
+  flex-direction: column-reverse;
+}
+
+.sq--top .sq-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column-reverse;  /* price di atas, image di bawah */
+  align-items: center;
+  justify-content: flex-start;
+  padding: 2px 1px;
+  overflow: hidden;
+  min-height: 0;
+  gap: 1px;
+}
+
+/* ── LEFT (pos 11–19): strip di kanan, konten di kiri ───────── */
+/* Cell: 100px lebar × ~62px tinggi                              */
+/* row-reverse: body di kiri, strip di kanan (menghadap center)  */
+
+.sq--left {
+  display: flex;
+  flex-direction: row-reverse;
+}
+
+.sq--left .sq-body {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 3px;
+  overflow: hidden;
+  min-width: 0;
+  gap: 2px;
+}
+
+/* ── RIGHT (pos 31–39): strip di kiri, konten di kanan ──────── */
+/* flex-direction: row — strip di kiri, body di kanan            */
+
+.sq--right {
+  display: flex;
+  flex-direction: row;
+}
+
+.sq--right .sq-body {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 3px;
+  overflow: hidden;
+  min-width: 0;
+  gap: 2px;
+}
+
+/* ============================================================
+   ELEMEN DALAM BODY
+   ============================================================ */
+
+/* ── Foto landmark ───────────────────────────────────────────── */
+
+.sq-img {
+  display: block;
+  width: 100%;
+  flex-shrink: 1;
+  min-height: 0;
+  min-width: 0;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 1px;
+}
+
+/* Portrait: gambar tidak terlalu tinggi agar nama/harga muat */
+.sq--bottom .sq-img,
+.sq--top .sq-img {
+  max-height: 36px;
+  width: 100%;
+}
+
+/* Landscape: gambar kotak di sisi kiri body */
+.sq--left .sq-img,
+.sq--right .sq-img {
+  width: 34px;
+  height: 34px;
+  aspect-ratio: unset;
+  flex-shrink: 0;
+  border-radius: 2px;
+}
+
+/* Utilitas (PLN/PAM): logo berbentuk lebih tinggi, pakai contain */
+.sq-img--utility {
+  object-fit: contain;
+  background: white;
+  padding: 1px;
+  border-radius: 2px;
+}
+
+/* ── Teks nama petak ─────────────────────────────────────────── */
+
+.sq-name {
+  font-size: 6.5px;
+  font-family: 'Arial', sans-serif;
+  font-weight: 700;
+  color: #111;
+  text-align: center;
+  line-height: 1.2;
+  word-break: break-word;
+  hyphens: auto;
+  flex-shrink: 0;
+}
+
+/* Landscape: nama vertikal */
+.sq--left .sq-name,
+.sq--right .sq-name {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-size: 6px;
+  text-align: left;
+  word-break: unset;
+  hyphens: none;
+  max-height: 56px;
+  overflow: hidden;
+}
+
+/* Left: baca dari bawah ke atas */
+.sq--left .sq-name {
+  transform: rotate(180deg);
+}
+
+/* ── Subtitle (kota/negara) ──────────────────────────────────── */
+
+.sq-subtitle {
+  font-size: 5.5px;
+  font-family: 'Arial', sans-serif;
+  color: #555;
+  text-align: center;
+  line-height: 1.1;
+  flex-shrink: 0;
+}
+
+/* Sembunyikan subtitle di landscape (terlalu sempit) */
+.sq--left .sq-subtitle,
+.sq--right .sq-subtitle {
+  display: none;
+}
+
+/* ── Harga ───────────────────────────────────────────────────── */
+
+.sq-price {
+  font-size: 6px;
+  font-family: 'Arial', sans-serif;
+  font-weight: 600;
+  color: #222;
+  text-align: center;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.sq-price--tax {
+  color: #b71c1c;
+  font-weight: 700;
+}
+
+/* Landscape: harga vertikal */
+.sq--left .sq-price,
+.sq--right .sq-price {
+  writing-mode: vertical-rl;
+  font-size: 5.5px;
+  max-height: 36px;
+  overflow: hidden;
+}
+
+.sq--left .sq-price {
+  transform: rotate(180deg);
+}
+
+/* ── Icon tipe (emoji fallback) ──────────────────────────────── */
+
+.sq-type-icon {
+  font-size: 18px;
+  line-height: 1;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+/* Icon lebih kecil di landscape */
+.sq--left .sq-type-icon,
+.sq--right .sq-type-icon {
+  font-size: 14px;
+}
+
+/* ============================================================
+   KARTU KESEMPATAN / DANA UMUM
+   ============================================================ */
+
+/* Gambar back kartu (jika aset ada) */
+.sq-card-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Fallback card design (jika aset belum ada) */
+.sq-card {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.6), rgba(255,255,255,0.2));
+  border: 1.5px solid var(--card-accent, #999);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.sq-card-symbol {
+  font-size: 22px;
+  font-family: 'Impact', 'Arial Black', sans-serif;
+  font-weight: 900;
+  color: var(--card-accent, #555);
+  line-height: 1;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.sq-card-label {
+  font-size: 5px;
+  font-family: 'Arial Black', 'Arial', sans-serif;
+  font-weight: 900;
+  text-align: center;
+  color: var(--card-accent, #555);
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  line-height: 1.2;
+  padding: 0 2px;
+}
+
+/* Landscape: label kartu disembunyikan (terlalu sempit) */
+.sq--left .sq-card-label,
+.sq--right .sq-card-label {
+  display: none;
+}
+
+.sq--left .sq-card-symbol,
+.sq--right .sq-card-symbol {
+  font-size: 16px;
+}
+
+/* ============================================================
+   OWNER DOT & MORTGAGED TAG
+   ============================================================ */
+
+.sq-owner-dot {
+  position: absolute;
+  bottom: 3px;
+  right: 3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255,255,255,0.85);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  z-index: 4;
+  pointer-events: none;
+}
+
+/* Left strip di kanan — dot jangan overlap strip */
+.sq--left .sq-owner-dot  { right: 18px; }
+.sq--right .sq-owner-dot { left: 18px; right: unset; }
+
+.sq-mortgaged-tag {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-12deg);
+  font-size: 7px;
+  font-weight: 900;
+  font-family: 'Arial Black', 'Arial', sans-serif;
+  color: #b71c1c;
+  background: rgba(255,255,255,0.88);
+  padding: 1px 5px;
+  border: 1.5px solid #b71c1c;
+  border-radius: 2px;
+  z-index: 6;
+  letter-spacing: 0.5px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* ── Bangunan standalone (airport/utility — jarang dipakai) ──── */
+
+.sq-buildings {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px;
+  z-index: 4;
+  pointer-events: none;
+}
+
+/* ============================================================
+   PETAK SUDUT (CornerSquare.jsx)
+   ============================================================ */
+
+.sq-corner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border: 2px solid;
+  box-sizing: border-box;
+  overflow: hidden;
+  text-align: center;
+  padding: 6px 4px;
+}
+
+.sq-corner-icon {
+  font-size: 28px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.sq-corner-label {
+  font-size: 9px;
+  font-family: 'Arial Black', 'Arial', sans-serif;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #111;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.sq-corner-sub {
+  font-size: 6.5px;
+  font-family: 'Arial', sans-serif;
+  color: #444;
+  text-align: center;
+  line-height: 1.3;
+  padding: 0 4px;
+}
+
+.sq-corner-pool {
+  font-size: 9px;
+  font-weight: 700;
+  font-family: 'Arial', sans-serif;
+  color: #1565c0;
+  background: rgba(255,255,255,0.75);
+  padding: 1px 6px;
+  border-radius: 8px;
+  border: 1px solid #1565c0;
+  white-space: nowrap;
+}
+
+/* ============================================================
+   CORNER IMAGE (jika aset tersedia)
+   ============================================================ */
+
+.corner-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 2px;
+}
+
+/* ============================================================
+   GO CORNER (pos 0 — kanan bawah)
+   ============================================================ */
+
+.sq-corner--go {
+  flex-direction: column;
+  justify-content: space-evenly;
+  padding: 4px;
+  position: relative;
+}
+
+.go-arrows {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  display: flex;
+  gap: 2px;
+}
+
+.go-arrow {
+  font-size: 14px;
+  font-weight: 900;
+  color: #1b5e20;
+  line-height: 1;
+}
+
+.go-title {
+  font-size: 32px;
+  font-family: 'Impact', 'Arial Black', sans-serif;
+  font-weight: 900;
+  font-style: italic;
+  color: #1b5e20;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.15);
+  line-height: 1;
+  text-align: center;
+}
+
+.go-collect {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.go-collect-label {
+  font-size: 7px;
+  font-family: 'Arial', sans-serif;
+  font-weight: 700;
+  color: #2e7d32;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.go-collect-amount {
+  font-size: 10px;
+  font-family: 'Arial Black', sans-serif;
+  font-weight: 900;
+  color: #1b5e20;
+}
+
+.go-collect-sub {
+  font-size: 6px;
+  font-family: 'Arial', sans-serif;
+  color: #555;
+  font-style: italic;
+}
+
+.go-icon {
+  font-size: 16px;
+  line-height: 1;
+  text-align: center;
+}
+
+/* ============================================================
+   JAIL CORNER (pos 10 — kiri bawah)
+   Diagonal split: kanan atas = sel, kiri bawah = berkunjung
+   ============================================================ */
+
+.sq-corner--jail {
+  position: relative;
+  overflow: hidden;
+  padding: 0;
+  border: 2px solid #f9a825;
+}
+
+/* Garis diagonal */
+.jail-diagonal {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    transparent calc(50% - 1.5px),
+    #555 calc(50% - 1.5px),
+    #555 calc(50% + 1.5px),
+    transparent calc(50% + 1.5px)
+  );
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* Sel penjara — pojok kanan atas */
+.jail-cell-area {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  z-index: 2;
+}
+
+.jail-cell-label {
+  font-size: 7px;
+  font-family: 'Arial Black', sans-serif;
+  font-weight: 900;
+  color: #333;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.jail-bars {
+  display: flex;
+  gap: 4px;
+  align-items: stretch;
+  height: 22px;
+  background: #ffa000;
+  padding: 2px 3px;
+  border-radius: 2px;
+  border: 1px solid #e65100;
+}
+
+.jail-bar {
+  width: 3px;
+  background: #333;
+  border-radius: 1px;
+}
+
+.jail-cell-icon {
+  font-size: 12px;
+  line-height: 1;
+}
+
+/* Badge jumlah pemain */
+.jail-badge {
+  position: absolute;
+  font-size: 8px;
+  font-weight: 900;
+  font-family: 'Arial Black', sans-serif;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid white;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  z-index: 5;
+}
+
+.jail-badge--jailed   { background: #c62828; color: white; top: 2px;    right: 2px; }
+.jail-badge--visiting { background: #1565c0; color: white; bottom: 2px; left: 2px;  }
+
+/* Area berkunjung — pojok kiri bawah */
+.jail-visiting-area {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  width: 56px;
+  height: 38px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.jail-visiting-line1,
+.jail-visiting-line2 {
+  font-size: 6.5px;
+  font-family: 'Arial Black', sans-serif;
+  font-weight: 900;
+  color: #444;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  line-height: 1.3;
+  text-align: center;
+}
+
+/* ============================================================
+   FREE PARKING CORNER (pos 20 — kiri atas)
+   ============================================================ */
+
+.sq-corner--free-parking {
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+}
+
+.parking-icon-wrap {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.parking-p {
+  font-size: 22px;
+  font-family: 'Impact', 'Arial Black', sans-serif;
+  font-weight: 900;
+  color: #1565c0;
+  background: rgba(255,255,255,0.7);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #1565c0;
+  line-height: 1;
+}
+
+.parking-car { font-size: 18px; line-height: 1; }
+
+.parking-title {
+  font-size: 9px;
+  font-family: 'Arial Black', sans-serif;
+  font-weight: 900;
+  color: #1565c0;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  line-height: 1.3;
+}
+
+.parking-pool {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(255,255,255,0.75);
+  border: 1px solid #1565c0;
+  border-radius: 6px;
+  padding: 1px 5px;
+}
+
+.parking-pool-label  { font-size: 5.5px; color: #555; font-family: 'Arial', sans-serif; text-transform: uppercase; }
+.parking-pool-amount { font-size: 9px;   font-weight: 900; font-family: 'Arial Black', sans-serif; color: #1565c0; }
+.parking-empty       { font-size: 8px;   font-style: italic; color: #888; font-family: 'Arial', sans-serif; }
+
+/* ============================================================
+   GO TO JAIL CORNER (pos 30 — kanan atas)
+   ============================================================ */
+
+.sq-corner--go-to-jail {
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 3px;
+  padding: 4px;
+  border: 2px solid #c62828;
+}
+
+.gotojail-icon  { font-size: 24px; line-height: 1; }
+
+.gotojail-title {
+  font-size: 10px;
+  font-family: 'Arial Black', sans-serif;
+  font-weight: 900;
+  color: #b71c1c;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  line-height: 1.25;
+}
+
+.gotojail-sub {
+  font-size: 6px;
+  font-family: 'Arial', sans-serif;
+  color: #555;
+  text-align: center;
+  font-style: italic;
+}
+
+.gotojail-arrow { font-size: 18px; color: #c62828; line-height: 1; font-weight: 900; }
+
+/* ============================================================
+   P2: BANGUNAN (rumah/hotel), HIGHLIGHT, & GADAI di petak
+   ============================================================ */
+
+/* Deretan bangunan, ditempel di atas petak (menimpa strip komplex) */
+.sq__buildings {
+  position: absolute;
+  top: 17px;
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: 2px;
+  justify-content: center;
+  z-index: 6;
+  pointer-events: none;
+}
+.bld {
+  display: inline-block;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45));
+}
+/* Rumah: segitiga atap hijau di atas kotak */
+.bld--house {
+  width: 7px;
+  height: 7px;
+  background: #2e9e4f;
+  border: 0.5px solid #14622e;
+  border-radius: 1px;
+  position: relative;
+}
+.bld--house::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: -3px;
+  width: 0;
+  height: 0;
+  border-left: 4.5px solid transparent;
+  border-right: 4.5px solid transparent;
+  border-bottom: 3.5px solid #1f7e3c;
+}
+/* Hotel: kotak merah lebih lebar */
+.bld--hotel {
+  width: 14px;
+  height: 8px;
+  background: #d3322c;
+  border: 0.5px solid #7d1714;
+  border-radius: 1px;
+  position: relative;
+}
+.bld--hotel::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: -3px;
+  width: 10px;
+  height: 0;
+  border-left: 2px solid transparent;
+  border-right: 2px solid transparent;
+  border-bottom: 3px solid #a51f1b;
+}
+
+/* Highlight petak terakhir didarati */
+.sq--highlight {
+  box-shadow: inset 0 0 0 2px var(--gold, #ffd700), 0 0 10px rgba(255, 215, 0, 0.6);
+  z-index: 6;
+  animation: sq-pulse 1.2s ease-in-out 2;
+}
+@keyframes sq-pulse {
+  0%, 100% { box-shadow: inset 0 0 0 2px rgba(255,215,0,0.9), 0 0 6px rgba(255,215,0,0.4); }
+  50%      { box-shadow: inset 0 0 0 3px rgba(255,215,0,1), 0 0 16px rgba(255,215,0,0.85); }
+}
+
+/* Petak digadai → redup + label diagonal */
+.sq--mortgaged { filter: grayscale(0.7) brightness(0.82); }
+.sq__mortgage-tag {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-18deg);
+  font-size: 6.5px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #fff;
+  background: rgba(180, 30, 30, 0.85);
+  padding: 1px 4px;
+  border-radius: 2px;
+  z-index: 7;
+  pointer-events: none;
+}
+
+
+/* ============================================================
+   LAYOUT PETAK v3 — orientasi menghadap CENTER
+   Urutan konten (dari tepi luar → ke dalam):
+     strip komplek · negara · bendera · gambar · kota · harga
+   Konten ditumpuk vertikal di .sq__content lalu diputar per sisi
+   sehingga "atas" konten = tepi luar papan, "bawah" = menghadap pusat.
+   ============================================================ */
+
+.sq { position: relative; overflow: hidden; }
+
+/* Container konten — semua sisi tampil tegak (tanpa rotasi).
+   Versi rotasi dihapus karena belum stabil; akan dikerjakan ulang
+   di iterasi baru bila diperlukan. */
+.sq__content {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  box-sizing: border-box;
+}
+
+/* ── BAGIAN KONTEN ────────────────────────────────────────── */
+
+/* 1. Strip komplek */
+.sq__strip {
+  flex-shrink: 0;
+  width: 100%;
+  min-height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 2px;
+  border-bottom: 1px solid rgba(0,0,0,0.3);
+  box-sizing: border-box;
+}
+.sq__komplex-label {
+  font-size: 6px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 1px 1px rgba(0,0,0,0.85);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 2. Negara */
+.sq__country {
+  flex-shrink: 0;
+  font-size: 6px;
+  font-weight: 700;
+  text-align: center;
+  color: #1a1a2e;
+  line-height: 1.1;
+  padding: 1px 2px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 3. Bendera */
+.sq__flag {
+  flex-shrink: 0;
+  font-size: 11px;
+  line-height: 1;
+  text-align: center;
+  padding: 1px 0;
+}
+
+/* 4. Gambar landmark — mengisi sisa ruang */
+.sq__img {
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  object-fit: cover;
+  display: block;
+}
+.sq__img--empty { background: rgba(0,0,0,0.05); flex: 1 1 auto; }
+
+/* nama kota kecil */
+.sq__city {
+  flex-shrink: 0;
+  font-size: 5.5px;
+  font-weight: 700;
+  text-align: center;
+  color: #2a2a3a;
+  line-height: 1.1;
+  padding: 0 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 5. Harga (paling dalam) */
+.sq__price {
+  flex-shrink: 0;
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 6.5px;
+  font-weight: 800;
+  text-align: center;
+  color: #1a1a2e;
+  background: rgba(255,255,255,0.92);
+  border-top: 1px solid rgba(0,0,0,0.12);
+  padding: 1px 0;
+  line-height: 1.15;
+}
+
+/* Non-properti header */
+.sq__header--type {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 2px;
+}
+.sq__type-icon { font-size: 13px; line-height: 1; }
+.sq__name-type {
+  font-size: 6px;
+  font-weight: 700;
+  text-align: center;
+  color: #2a2a3a;
+  text-transform: uppercase;
+  line-height: 1.05;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ── Bangunan: selalu di tepi LUAR papan (tidak ikut rotate) ── */
+.sq__buildings {
+  position: absolute;
+  display: flex;
+  gap: 2px;
+  justify-content: center;
+  z-index: 9;
+  pointer-events: none;
+}
+.sq__buildings--bottom { top: 15px; left: 0; right: 0; }
+.sq__buildings--top    { bottom: 15px; left: 0; right: 0; }
+.sq__buildings--left   { right: 15px; top: 0; bottom: 0; flex-direction: column; }
+.sq__buildings--right  { left: 15px; top: 0; bottom: 0; flex-direction: column; }
+
+/* ── Titik pemilik ───────────────────────────────────────────── */
+.sq__owner-dot {
+  position: absolute;
+  top: 2px; right: 2px;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  border: 1px solid #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  z-index: 10;
+}
+
+/* Mortgage tag */
+.sq__mortgage-tag {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%,-50%) rotate(-18deg);
+  font-size: 6.5px; font-weight: 800; letter-spacing: 0.5px;
+  color: #fff; background: rgba(180,30,30,0.85);
+  padding: 1px 4px; border-radius: 2px;
+  z-index: 8; pointer-events: none;
+}
