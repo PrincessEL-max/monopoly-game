@@ -60,6 +60,7 @@ export const SQUARES = [
     name: 'Pajak Penghasilan',
     type: 'tax',
     amount: 20000,
+    image: 'Pajak_jalan',
   },
   {
     id: 5,
@@ -422,6 +423,7 @@ export const SQUARES = [
     name: 'Pajak Mewah',
     type: 'tax',
     amount: 10000,
+    image: 'Pajak_istimewa',
   },
   {
     id: 39,

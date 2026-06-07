@@ -59,6 +59,9 @@ export const LANDMARK_IMAGES = {
   pln:               `${BASE}/Listrik.jpeg`,
   pam:               `${BASE}/Air.jpeg`,
 
+    // ── Pajak ──────────────────────────────────────────────
+  Pajak_jalan:               `${BASE}/Pajak-Jalan.jpeg`,
+  Pajak_istimewa:               `${BASE}/Pajak-Istimewa.jpeg`,
   // ── SUDUT / SPECIAL (opsional, untuk overlay) ────────────
   corner_go:         `${BASE}/Start.jpeg`,
   corner_jail:       `${BASE}/Penjara1.jpeg`,
@@ -74,7 +77,7 @@ export const LANDMARK_IMAGES = {
   card_chest_back:   `${BASE}/Dana-Umum.jpeg`,
 
   // ── UANG ──────────────────────────────────────────────────
-  money_500:         `${BASE}/uang-500.png`,
+  money_500:         `${BASE}/Start.jpeg`,
   money_1000:        `${BASE}/uang-1000.png`,
   money_5000:        `${BASE}/uang-5000.png`,
   money_10000:       `${BASE}/uang-10000.png`,
