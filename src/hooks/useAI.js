@@ -78,6 +78,13 @@ export const useAI = (gameState, actions, difficulty = 'medium') => {
       timerRef.current = setTimeout(fn, ms);
     };
 
+    // Giliran sudah digeser reducer sendiri (go_to_jail, triple double, dll)
+    // Tidak perlu aksi tambahan — clear timer pending dan return.
+    if (turnEnded) {
+      clearTimeout(timerRef.current);
+      return;
+    }
+
     // ── RESPONS TRADE MASUK ──────────────────────────────────
     if (waitingFor === 'TRADE_RESPONSE' && pendingTrade?.to === currentPlayer.id) {
       delay(() => {
@@ -193,10 +200,13 @@ export const useAI = (gameState, actions, difficulty = 'medium') => {
     }
 
     // ── END TURN setelah semua aksi selesai ──────────────────
-    // Hanya untuk pola "normal": reducer belum memindahkan giliran
-    // sendiri (turnEnded=false) dan memang menunggu akhiri giliran.
-    if (!waitingFor && !canRoll && !turnEnded && !landResult && !activeCard && !auction) {
-      delay(() => endTurn(), AI_DELAY.ACTION);
+    // landResult bertipe 'own'/'free'/'corner'/'mortgaged' tidak butuh
+    // aksi user — AI langsung endTurn meski landResult masih ada.
+    const passiveLand = landResult && ['own','free','corner','mortgaged'].includes(landResult.type);
+    if (!waitingFor && !canRoll && !turnEnded && !activeCard && !auction) {
+      if (!landResult || passiveLand) {
+        delay(() => endTurn(), AI_DELAY.ACTION);
+      }
     }
 
   }, [

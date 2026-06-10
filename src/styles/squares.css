@@ -938,9 +938,10 @@
   transform: rotate(180deg);
 }
 
-/* Sisi LEFT (pos 11–19):
-   Cell: ~62px lebar × 100px tinggi
-   Konten portrait: 100px lebar × 62px tinggi → rotate +90° → jadi 62×100 */
+/* Sisi LEFT (pos 11–19), col 1:
+   Cell 100px lebar × 62px tinggi.
+   Strip harus di KANAN cell (menghadap center board di kanan).
+   rotate(-90deg): "atas" konten → bergeser ke kanan cell. ✓ */
 .sq--side-left .sq__content {
   top: 50%;
   left: 50%;
@@ -950,10 +951,13 @@
   height: 62px;
   margin-top: -31px;
   margin-left: -50px;
-  transform: rotate(90deg);
+  transform: rotate(-90deg);
 }
 
-/* Sisi RIGHT (pos 31–39): sama tapi rotate −90° */
+/* Sisi RIGHT (pos 31–39), col 11:
+   Cell 100px lebar × 62px tinggi.
+   Strip harus di KIRI cell (menghadap center board di kiri).
+   rotate(90deg): "atas" konten → bergeser ke kiri cell. ✓ */
 .sq--side-right .sq__content {
   top: 50%;
   left: 50%;
@@ -963,7 +967,7 @@
   height: 62px;
   margin-top: -31px;
   margin-left: -50px;
-  transform: rotate(-90deg);
+  transform: rotate(90deg);
 }
 
 /* ── BAGIAN KONTEN ────────────────────────────────────────── */
