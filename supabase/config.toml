@@ -1,0 +1,4 @@
+project_id = "monopoly-game"
+
+[functions.monopoly-game]
+verify_jwt = false

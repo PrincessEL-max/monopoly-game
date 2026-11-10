@@ -1,0 +1,72 @@
+.piece-model {
+  --token-size: 46px;
+  --token-color: #e84c3d;
+  position: relative;
+  display: inline-flex;
+  width: var(--token-size);
+  height: var(--token-size);
+  flex: 0 0 var(--token-size);
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+.piece-model-renderer {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+}
+
+.piece-model__fallback {
+  font-size: calc(var(--token-size) * 0.62);
+  line-height: 1;
+}
+
+.piece-pick .piece-model,
+.piece-model--setup {
+  --token-size: 34px;
+  --token-color: #d7a93e;
+}
+
+.piece-pick--active .piece-model {
+  filter: drop-shadow(0 0 3px #ffd700);
+}
+
+.player-piece .piece-model {
+  --token-size: var(--sz, 46px);
+}
+
+.pcard-piece .piece-model {
+  --token-size: 30px;
+}
+
+.end-piece .piece-model {
+  --token-size: 52px;
+}
+
+.piece-model--rank {
+  --token-size: 22px;
+}
+
+.panel-turn strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.trade-partner .piece-model {
+  --token-size: 22px;
+}
+
+.end-rank-name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}

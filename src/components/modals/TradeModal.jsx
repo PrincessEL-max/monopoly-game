@@ -18,6 +18,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SQUARES, KOMPLEX_COLORS } from '../../constants/squares';
 import { PLAYER_COLORS } from '../board/Board';
+import PieceModel from '../board/PieceModel';
 import { aiEvaluateTrade } from '../../logic/aiLogic';
 
 const fmt = (n) => n?.toLocaleString('id-ID') ?? '0';
@@ -226,11 +227,8 @@ function TradeCompose({ game, onClose, onPropose }) {
                     className={`trade-partner ${p.id === partnerId ? 'trade-partner--active' : ''}`}
                     onClick={() => setPartnerId(p.id)}
                   >
-                    <span
-                      className="trade-partner-dot"
-                      style={{ background: PLAYER_COLORS[p.id] ?? '#999' }}
-                    />
-                    {p.piece} {p.name}{p.isAI ? ' 🤖' : ''}
+                    <PieceModel piece={p.piece} color={PLAYER_COLORS[p.id] ?? '#999'} />
+                    {p.name}{p.isAI ? ' 🤖' : ''}
                   </button>
                 ))}
               </div>

@@ -4,10 +4,10 @@
 // Kembalikan patch object → merge di useGameState
 // ============================================================
 
-import { SQUARES } from '../constants/squares';
-import { RULES, SPECIAL_POSITIONS, AIRPORT_POSITIONS, UTILITY_POSITIONS } from '../constants/config';
-import { shuffleDeck, CHANCE_CARDS, COMMUNITY_CHEST_CARDS } from '../constants/cards';
-import { calculateRent } from './rentLogic';
+import { SQUARES, getKomplexSquares } from '../constants/squares.js';
+import { RULES, SPECIAL_POSITIONS, AIRPORT_POSITIONS, UTILITY_POSITIONS } from '../constants/config.js';
+import { shuffleDeck, CHANCE_CARDS, COMMUNITY_CHEST_CARDS } from '../constants/cards.js';
+import { calculateRent } from './rentLogic.js';
 
 // ─────────────────────────────────────────────────────────────
 // DICE
@@ -75,7 +75,7 @@ export const sendToJail = (player) => ({
  * Return { freed, paid, patch }
  */
 export const processJailTurn = (player, roll) => {
-  const { isDouble, total } = roll;
+  const { isDouble } = roll;
 
   // Keluar gratis dengan double
   if (isDouble) {
@@ -85,7 +85,7 @@ export const processJailTurn = (player, roll) => {
       patch: {
         inJail: false,
         jailTurns: 0,
-        position: (SPECIAL_POSITIONS.JAIL + total) % 40,
+        position: player.position,
       },
     };
   }
@@ -101,7 +101,7 @@ export const processJailTurn = (player, roll) => {
         inJail: false,
         jailTurns: 0,
         money: player.money - RULES.JAIL_FINE,
-        position: (SPECIAL_POSITIONS.JAIL + total) % 40,
+        position: player.position,
       },
     };
   }
@@ -245,6 +245,10 @@ export const buyProperty = (player, square, gameState) => {
 export const mortgageProperty = (player, squareId, gameState) => {
   const square = SQUARES.find((s) => s.id === squareId);
   if (!square || gameState.owners[squareId] !== player.id) return null;
+  if ((player.mortgaged || []).includes(squareId)) return null;
+  if (square.komplex && getKomplexSquares(square.komplex).some(
+    (s) => (gameState.houses[s.id] || 0) > 0 || (gameState.hotels[s.id] || 0) > 0
+  )) return null;
 
   const mortgageValue = Math.floor(square.price * RULES.MORTGAGE_RATE);
   return {
@@ -260,7 +264,7 @@ export const mortgageProperty = (player, squareId, gameState) => {
  */
 export const unmortgageProperty = (player, squareId) => {
   const square = SQUARES.find((s) => s.id === squareId);
-  if (!square) return null;
+  if (!square || !(player.mortgaged || []).includes(squareId)) return null;
 
   const cost = Math.floor(square.price * RULES.UNMORTGAGE_RATE);
   if (player.money < cost) return null;

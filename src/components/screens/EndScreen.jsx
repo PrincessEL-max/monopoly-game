@@ -5,6 +5,7 @@
 import React from 'react';
 import { calcNetWorth } from '../../logic/rentLogic';
 import { PLAYER_COLORS } from '../board/Board';
+import PieceModel from '../board/PieceModel';
 
 const fmt = (n) => n?.toLocaleString('id-ID') ?? '0';
 
@@ -40,21 +41,18 @@ export default function EndScreen({ game, onRestart }) {
         <h1 className="end-title">{champ?.name} Menang!</h1>
         <div
           className="end-piece"
-          style={{ background: PLAYER_COLORS[champ?.id] ?? '#999' }}
+          style={{ '--token-color': PLAYER_COLORS[champ?.id] ?? '#999' }}
         >
-          {champ?.piece}
+          <PieceModel piece={champ?.piece} color={PLAYER_COLORS[champ?.id] ?? '#999'} />
         </div>
 
         <div className="end-rank">
           {ranked.map((p, i) => (
             <div className="end-rank-row" key={p.id}>
               <span className="end-rank-pos">#{i + 1}</span>
-              <span
-                className="end-rank-dot"
-                style={{ background: PLAYER_COLORS[p.id] ?? '#999' }}
-              />
               <span className="end-rank-name">
-                {p.piece} {p.name}
+                <PieceModel piece={p.piece} color={PLAYER_COLORS[p.id] ?? '#999'} className="piece-model--rank" />
+                {p.name}
                 {p.isAI ? ' 🤖' : ''}
                 {p.bankrupt ? ' (bangkrut)' : ''}
               </span>

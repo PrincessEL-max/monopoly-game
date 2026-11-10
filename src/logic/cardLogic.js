@@ -4,8 +4,8 @@
 // ============================================================
 
 // config tidak dibutuhkan langsung — PASS_GO hardcode inline untuk hindari circular
-import { calcNewPosition, findNearest, sendToJail, addLog } from './gameLogic';
-import { calcRepairCost } from './rentLogic';
+import { calcNewPosition, findNearest, sendToJail, addLog } from './gameLogic.js';
+import { calcRepairCost } from './rentLogic.js';
 
 // ─────────────────────────────────────────────────────────────
 // MAIN ENTRY
@@ -29,10 +29,10 @@ export const applyCard = (card, gameState, playerIndex) => {
       return applyPay(card, player, playerIndex, gameState);
 
     case 'collect_players':
-      return applyCollectFromPlayers(card, player, playerIndex, gameState);
+      return applyCollectFromPlayers(card, player, gameState);
 
     case 'pay_players':
-      return applyPayToPlayers(card, player, playerIndex, gameState);
+      return applyPayToPlayers(card, player, gameState);
 
     case 'move_to':
       return applyMoveTo(card, player, playerIndex, gameState);
@@ -87,18 +87,16 @@ const applyPay = (card, player, idx, state) => {
 };
 
 /** Kumpulkan uang dari setiap pemain lain */
-const applyCollectFromPlayers = (card, player, idx, state) => {
+const applyCollectFromPlayers = (card, player, state) => {
   const activePlayers = state.players.filter((p) => !p.bankrupt && p.id !== player.id);
   const total = card.amount * activePlayers.length;
 
-  const players = state.players.map((p) => {
-    if (p.id === player.id) return { ...p, money: p.money + total };
-    if (p.bankrupt) return p;
-    return { ...p, money: p.money - card.amount };
-  });
-
   return {
-    players,
+    payments: activePlayers.map((payer) => ({
+      payerId: payer.id,
+      creditorId: player.id,
+      amount: card.amount,
+    })),
     log: addLog(
       state.log,
       `${player.name} menerima $${fmt(card.amount)} dari setiap pemain (total $${fmt(total)}).`
@@ -107,20 +105,16 @@ const applyCollectFromPlayers = (card, player, idx, state) => {
 };
 
 /** Bayar ke setiap pemain lain */
-const applyPayToPlayers = (card, player, idx, state) => {
+const applyPayToPlayers = (card, player, state) => {
   const activePlayers = state.players.filter((p) => !p.bankrupt && p.id !== player.id);
   const total = card.amount * activePlayers.length;
 
-  const players = state.players.map((p) => {
-    if (p.id === player.id) return { ...p, money: p.money - total };
-    if (p.bankrupt) return p;
-    return { ...p, money: p.money + card.amount };
-  });
-
-  const bankrupt = player.money - total < 0;
   return {
-    players,
-    ...(bankrupt ? { bankruptPlayer: player.id } : {}),
+    payments: activePlayers.map((creditor) => ({
+      payerId: player.id,
+      creditorId: creditor.id,
+      amount: card.amount,
+    })),
     log: addLog(
       state.log,
       `${player.name} membayar $${fmt(card.amount)} ke setiap pemain (total $${fmt(total)}).`

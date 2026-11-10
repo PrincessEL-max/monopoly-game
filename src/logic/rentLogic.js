@@ -2,7 +2,7 @@
 // rentLogic.js — Kalkulasi sewa semua tipe petak
 // ============================================================
 
-import { SQUARES, getKomplexSquares, ownsFullKomplex } from '../constants/squares';
+import { SQUARES, getKomplexSquares, ownsFullKomplex } from '../constants/squares.js';
 
 // ─────────────────────────────────────────────────────────────
 // MAIN ENTRY

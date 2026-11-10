@@ -15,8 +15,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { ANIMATION } from '../../constants/config';
+import PieceModel from './PieceModel';
 
-const PIECE_SIZE = 26;          // diameter bidak (px)
+const PIECE_SIZE = 46;          // diameter bidak (px)
 const STEP_MS = ANIMATION.PIECE_MOVE_DURATION; // ms per petak
 const TOTAL_SQUARES = 40;
 
@@ -90,9 +91,7 @@ const PlayerPiece = ({ player, resolveCenter, offset = { dx: 0, dy: 0 }, color }
       title={tooltip}
     >
       <div className="piece-inner">
-        <div className="piece-circle">
-          <span className="piece-icon" aria-hidden="true">{player.piece}</span>
-        </div>
+        <PieceModel piece={player.piece} color={color} />
         {player.inJail && (
           <span className="piece-jail-badge" aria-label="Di penjara">🔒</span>
         )}

@@ -11,7 +11,7 @@ import {
   aiDecideBuy, aiDecideBuild, aiDecideMortgage,
   aiDecideJail, aiEvaluateTrade,
 } from '../logic/aiLogic';
-import { ACTIONS } from './useGameState';
+import { ACTIONS } from '../logic/gameReducer.js';
 import { SQUARES, getKomplexSquares } from '../constants/squares';
 import { RULES } from '../constants/config';
 
@@ -49,7 +49,7 @@ const findSellable = (player, gs) => {
  * @param {Function} actions   — action dispatchers
  * @param {string} difficulty  — 'easy' | 'medium' | 'hard'
  */
-export const useAI = (gameState, actions, difficulty = 'medium') => {
+export const useAI = (gameState, actions, difficulty = 'medium', enabled = true) => {
   const timerRef = useRef(null);
 
   const {
@@ -69,6 +69,7 @@ export const useAI = (gameState, actions, difficulty = 'medium') => {
   useEffect(() => () => clearTimeout(timerRef.current), []);
 
   useEffect(() => {
+    if (!enabled) return;
     if (phase !== 'playing') return;
     if (!currentPlayer?.isAI) return;
     if (auction) return; // lelang ditangani AuctionModal
@@ -210,6 +211,7 @@ export const useAI = (gameState, actions, difficulty = 'medium') => {
     }
 
   }, [
+    enabled,
     phase, currentPlayer, waitingFor, canRoll, turnEnded,
     landResult, activeCard, pendingTrade, pendingDebt, auction, difficulty,
   ]);

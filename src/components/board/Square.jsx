@@ -57,7 +57,7 @@ const COUNTRY_FLAG = {
 const fmtMoney = (n) => n?.toLocaleString('id-ID') ?? '';
 
 export default function Square({
-  square, side = 'bottom', ownerId, houseCount, hasHotel,
+  square, side = 'bottom', ownerId, ownerColor, houseCount, hasHotel,
   isMortgaged, isHighlighted, style,
 }) {
   const { type, komplex, image, name, subtitle, price, amount } = square;
@@ -70,8 +70,8 @@ export default function Square({
 
   return (
     <div
-      className={`sq sq--${type} sq--side-${side}${isHighlighted ? ' sq--highlight' : ''}${isMortgaged ? ' sq--mortgaged' : ''}`}
-      style={{ ...style, background: bg }}
+      className={`sq sq--${type} sq--side-${side}${ownerId != null ? ' sq--owned' : ''}${isHighlighted ? ' sq--highlight' : ''}${isMortgaged ? ' sq--mortgaged' : ''}`}
+      style={{ ...style, background: bg, '--owner-color': ownerColor ?? '#fff' }}
     >
       {/* Konten yang diputar agar menghadap ke tengah papan */}
       <div className="sq__content">
@@ -103,9 +103,6 @@ export default function Square({
               <div className="sq__img sq__img--empty" />
             )}
 
-            {/* nama kota kecil di bawah gambar */}
-            <div className="sq__city">{name}</div>
-
             {/* 5. Harga (paling dalam / bawah) */}
             {priceLabel && <div className="sq__price">{priceLabel}</div>}
           </>
@@ -122,7 +119,9 @@ export default function Square({
                   onError={(e) => { e.currentTarget.style.display = 'none'; }}
                 />
                 <div className="sq__full-img-overlay">
-                  <span className="sq__type-icon-overlay">{TYPE_ICON[type]}</span>
+                  {type !== 'chance' && type !== 'community_chest' && (
+                    <span className="sq__type-icon-overlay">{TYPE_ICON[type]}</span>
+                  )}
                   <span className="sq__name-overlay">{name}</span>
                   {priceLabel && <span className="sq__price-overlay">{priceLabel}</span>}
                 </div>

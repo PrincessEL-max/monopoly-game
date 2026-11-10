@@ -19,6 +19,8 @@ import React, { useState, useEffect } from 'react';
 import DiceDisplay from './DiceDisplay';
 import PlayerCard from './PlayerCard';
 import GameLog from './GameLog';
+import { PLAYER_COLORS } from '../board/Board';
+import PieceModel from '../board/PieceModel';
 import { RULES } from '../../constants/config';
 import {
   SQUARES, KOMPLEX_COLORS, getKomplexSquares, ownsFullKomplex,
@@ -163,7 +165,10 @@ export default function ControlPanel({ game, difficulty, onQuit, onOpenTrade, so
       <div className="panel-head">
         <div className="panel-turn">
           <span className="panel-turn-label">Giliran</span>
-          <strong>{currentPlayer?.piece} {currentPlayer?.name}</strong>
+          <strong>
+            <PieceModel piece={currentPlayer?.piece} color={PLAYER_COLORS[currentPlayer?.id] ?? '#999'} />
+            {currentPlayer?.name}
+          </strong>
           {isAI && <span className="panel-aiflag">AI · {difficulty}</span>}
         </div>
         {sound && (
@@ -251,6 +256,10 @@ function ManagePanel({ player, game, onBuyHouse, onBuyHotel, onSellHouse, onSell
   // Apakah ada properti komplex yang sedang digadai (blokir build seluruh komplex)
   const komplexHasMortgage = (komplex) =>
     getKomplexSquares(komplex).some((s) => (player.mortgaged || []).includes(s.id));
+  const komplexHasBuildings = (komplex) =>
+    getKomplexSquares(komplex).some(
+      (s) => (houses[s.id] || 0) > 0 || (hotels[s.id] || 0) > 0
+    );
 
   // Min/Max jumlah rumah dalam komplex (aturan bangun & jual merata)
   const minHousesInKomplex = (komplex) =>
@@ -290,7 +299,9 @@ function ManagePanel({ player, game, onBuyHouse, onBuyHotel, onSellHouse, onSell
     const houseRefund = Math.floor(sq.houseCost * RULES.SELL_REFUND_RATE);
     const hotelRefund = Math.floor(sq.hotelCost * RULES.SELL_REFUND_RATE);
 
-    const canMortgage = !mortgaged && h === 0 && !hasHotel; // jual bangunan dulu
+    const canMortgage =
+      !mortgaged && h === 0 && !hasHotel &&
+      (!sq.komplex || !komplexHasBuildings(sq.komplex));
     const unmortgageCost = Math.floor(sq.price * RULES.UNMORTGAGE_RATE);
     const canUnmortgage = mortgaged && player.money >= unmortgageCost;
     const mortgageValue = Math.floor(sq.price * RULES.MORTGAGE_RATE);

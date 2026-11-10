@@ -9,6 +9,7 @@ import React from 'react';
 import { PLAYER_COLORS } from '../board/Board';
 import { SQUARES } from '../../constants/squares';
 import { calcNetWorth } from '../../logic/rentLogic';
+import PieceModel from '../board/PieceModel';
 
 const fmt = (n) => n?.toLocaleString('id-ID') ?? '0';
 
@@ -27,8 +28,8 @@ export default function PlayerCard({ player, game, isCurrent }) {
   return (
     <div className={cls} style={{ '--pc': color }}>
       <div className="pcard-head">
-        <span className="pcard-piece" style={{ background: color }}>
-          {player.piece}
+        <span className="pcard-piece" style={{ '--token-color': color }}>
+          <PieceModel piece={player.piece} color={color} />
         </span>
         <span className="pcard-name">
           {player.name}

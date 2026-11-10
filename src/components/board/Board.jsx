@@ -12,7 +12,7 @@
 //   images.js   → (via BoardCenter)
 // ============================================================
 
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { SQUARES } from '../../constants/squares';
 import { BOARD, COLORS } from '../../constants/config';
 import Square       from './Square';
@@ -174,6 +174,8 @@ const GROUP_OFFSETS = [
  *     players, owners, houses, hotels, landResult, freeParkingPool
  */
 const Board = ({ gameState }) => {
+  const viewportRef = useRef(null);
+  const [scale, setScale] = useState(1);
   const {
     players         = [],
     owners          = {},
@@ -182,6 +184,19 @@ const Board = ({ gameState }) => {
     landResult      = null,
     freeParkingPool = 0,
   } = gameState || {};
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return undefined;
+
+    const updateScale = () => {
+      setScale(Math.min(1, viewport.clientWidth / 808));
+    };
+    const observer = new ResizeObserver(updateScale);
+    observer.observe(viewport);
+    updateScale();
+    return () => observer.disconnect();
+  }, []);
 
   // Kelompokkan pemain aktif per posisi (untuk offset bidak)
   const playersByPosition = useMemo(() => {
@@ -200,7 +215,8 @@ const Board = ({ gameState }) => {
   const highlightedId = landResult?.square?.id ?? null;
 
   return (
-    <div className="board-outer">
+    <div className="board2d-viewport" ref={viewportRef}>
+    <div className="board-outer" style={{ transform: `scale(${scale})` }}>
       {/* Bingkai emas dekoratif */}
       <div className="board-frame">
         <div className="board-grid">
@@ -284,6 +300,7 @@ const Board = ({ gameState }) => {
 
         </div>
       </div>
+    </div>
     </div>
   );
 };

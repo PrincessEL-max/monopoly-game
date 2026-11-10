@@ -10,9 +10,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useGameState } from './hooks/useGameState';
 import { useAI } from './hooks/useAI';
+import { useMultiplayer } from './hooks/useMultiplayer';
 import { useSound } from './hooks/useSound';
 import { saveGame, loadGame as loadSaved, peekSave, clearSave } from './utils/saveGame';
-import Board from './components/board/Board';
 import ControlPanel from './components/ui/ControlPanel';
 import SetupScreen from './components/screens/SetupScreen';
 import EndScreen from './components/screens/EndScreen';
@@ -21,27 +21,35 @@ import CardModal from './components/modals/CardModal';
 import JailModal from './components/modals/JailModal';
 import AuctionModal from './components/modals/AuctionModal';
 import TradeModal from './components/modals/TradeModal';
+import Board from './components/board/Board';
 import './styles/ui.css';
 import './styles/modals.css';
 
 export default function App() {
   const [runId, setRunId] = useState(0);
-  return <GameRoot key={runId} onRestart={() => { clearSave(); setRunId((r) => r + 1); }} />;
+  return <GameRoot key={runId} onRestart={(clearSavedGame = true) => {
+    if (clearSavedGame) clearSave();
+    setRunId((r) => r + 1);
+  }} />;
 }
 
 function GameRoot({ onRestart }) {
   const [difficulty, setDifficulty] = useState('medium');
   const [tradeOpen, setTradeOpen] = useState(false);
   const game = useGameState();
+  const multiplayer = useMultiplayer(game);
+  const gameView = multiplayer.room
+    ? { ...game, ...multiplayer.actionHandlers }
+    : game;
   const sound = useSound();
 
-  useAI(game, game, difficulty);
+  useAI(game, game, difficulty, !multiplayer.room);
 
   // ── AUTO-SAVE: simpan tiap state berubah saat bermain ──────────
   useEffect(() => {
-    if (game.phase === 'playing') saveGame(game);
-    if (game.phase === 'ended') clearSave();
-  }, [game.players, game.currentPlayerIndex, game.waitingFor, game.phase, game.owners]);
+    if (game.phase === 'playing' && !multiplayer.room) saveGame(game);
+    if (game.phase === 'ended' && !multiplayer.room) clearSave();
+  }, [game.players, game.currentPlayerIndex, game.waitingFor, game.phase, game.owners, multiplayer.room]);
 
   // ── SUARA: picu efek berdasar perubahan state ──────────────────
   const prevRef = useRef({ roll: null, waitingFor: null, phase: 'setup', logLen: 0 });
@@ -74,6 +82,11 @@ function GameRoot({ onRestart }) {
     };
   }, [game.lastRoll, game.waitingFor, game.phase, game.log, sound]);
 
+  const restartGame = () => {
+    if (multiplayer.room) multiplayer.leaveRoom().finally(() => onRestart(false));
+    else onRestart();
+  };
+
   // ── SETUP ──────────────────────────────────────────────────────
   if (game.phase === 'setup') {
     return (
@@ -81,6 +94,7 @@ function GameRoot({ onRestart }) {
         difficulty={difficulty}
         onChangeDifficulty={setDifficulty}
         onStart={(setups) => { clearSave(); game.startGame(setups); }}
+        multiplayer={multiplayer}
         savedInfo={peekSave()}
         onContinue={() => {
           const snap = loadSaved();
@@ -92,30 +106,44 @@ function GameRoot({ onRestart }) {
 
   // ── ENDED ───────────────────────────────────────────────────────
   if (game.phase === 'ended') {
-    return <EndScreen game={game} onRestart={onRestart} />;
+    return <EndScreen game={game} onRestart={restartGame} />;
   }
 
   // ── PLAYING ─────────────────────────────────────────────────────
   return (
     <div className="app-layout">
+      {multiplayer.room && (
+        <div className="online-hud">
+          <span>Room <strong>{multiplayer.room.code}</strong></span>
+          <span>{multiplayer.localPlayer?.name}</span>
+          <span className="online-save-status">Tersimpan otomatis</span>
+          <button
+            className="online-hud-leave"
+            onClick={restartGame}
+          >
+            Keluar
+          </button>
+          {multiplayer.error && <span className="online-hud-error" role="alert">{multiplayer.error}</span>}
+        </div>
+      )}
       <div className="app-board-area">
-        <Board gameState={game} />
+        <Board gameState={gameView} />
       </div>
 
       <ControlPanel
-        game={game}
+        game={gameView}
         difficulty={difficulty}
-        onQuit={onRestart}
+        onQuit={restartGame}
         onOpenTrade={() => setTradeOpen(true)}
         sound={sound}
       />
 
-      <BuyModal game={game} />
-      <CardModal game={game} />
-      <JailModal game={game} />
-      <AuctionModal game={game} difficulty={difficulty} />
+      <BuyModal game={gameView} />
+      <CardModal game={gameView} />
+      <JailModal game={gameView} />
+      <AuctionModal game={gameView} difficulty={difficulty} />
       <TradeModal
-        game={game}
+        game={gameView}
         difficulty={difficulty}
         open={tradeOpen}
         onClose={() => setTradeOpen(false)}

@@ -9,9 +9,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@supabase/server": "^1.9.2",
+    "@supabase/supabase-js": "^2.57.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "socket.io-client": "^4.8.3"
+    "three": "^0.187.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
