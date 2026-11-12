@@ -89,6 +89,8 @@ const SQUARE_LAYOUT = buildSquareLayout();
 
 const SSQW = (BOARD.SIZE - 2 * BOARD.CORNER_SIZE) / BOARD.SQUARES_PER_SIDE; // ≈62.22
 const C    = BOARD.CORNER_SIZE;                                               // 100
+const ISO_WIDTH = 808 * Math.SQRT2;
+const ISO_HEIGHT = ISO_WIDTH * Math.cos((55 * Math.PI) / 180) * 1.12;
 
 export const getSquarePxCenter = (id) => {
   // Sudut
@@ -173,9 +175,11 @@ const GROUP_OFFSETS = [
  *   gameState — full state dari useGameState():
  *     players, owners, houses, hotels, landResult, freeParkingPool
  */
-const Board = ({ gameState }) => {
+const Board = ({ gameState, zoom: controlledZoom, onZoomChange }) => {
   const viewportRef = useRef(null);
-  const [scale, setScale] = useState(1);
+  const [fitScale, setFitScale] = useState(1);
+  const [localZoom, setLocalZoom] = useState(1.1);
+  const zoom = controlledZoom ?? localZoom;
   const {
     players         = [],
     owners          = {},
@@ -190,13 +194,23 @@ const Board = ({ gameState }) => {
     if (!viewport) return undefined;
 
     const updateScale = () => {
-      setScale(Math.min(1, viewport.clientWidth / 808));
+      setFitScale(Math.min(viewport.clientWidth / ISO_WIDTH, viewport.clientHeight / ISO_HEIGHT));
     };
     const observer = new ResizeObserver(updateScale);
     observer.observe(viewport);
     updateScale();
     return () => observer.disconnect();
   }, []);
+
+  const updateZoom = (change) => {
+    const next = Math.min(2.4, Math.max(0.75, Number((zoom + change).toFixed(2))));
+    if (onZoomChange) onZoomChange(next);
+    else setLocalZoom(next);
+  };
+  const handleWheel = (event) => {
+    event.preventDefault();
+    updateZoom(event.deltaY < 0 ? 0.1 : -0.1);
+  };
 
   // Kelompokkan pemain aktif per posisi (untuk offset bidak)
   const playersByPosition = useMemo(() => {
@@ -215,8 +229,14 @@ const Board = ({ gameState }) => {
   const highlightedId = landResult?.square?.id ?? null;
 
   return (
-    <div className="board2d-viewport" ref={viewportRef}>
-    <div className="board-outer" style={{ transform: `scale(${scale})` }}>
+    <div className="board2d-viewport" ref={viewportRef} onWheel={handleWheel}>
+    <div
+      className="board-outer"
+      style={{
+        '--board-offset-y': `${fitScale * zoom * 107}px`,
+        transform: `scale(${fitScale * zoom}) rotateX(55deg) rotateZ(45deg)`,
+      }}
+    >
       {/* Bingkai emas dekoratif */}
       <div className="board-frame">
         <div className="board-grid">

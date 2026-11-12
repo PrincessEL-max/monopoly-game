@@ -50,6 +50,16 @@
   transform-origin: top left;
 }
 
+@media (orientation: landscape) {
+  .app-layout .app-board-area {
+    width: min(
+      808px,
+      calc(100svh - 16px),
+      calc(100vw - clamp(240px, 34vw, 320px) - 36px)
+    );
+  }
+}
+
 .board2d-loading {
   display: grid;
   width: 100%;
@@ -318,6 +328,37 @@
   left: 16px;
   background: linear-gradient(135deg, #2e7d32, #1b5e20);
   transform: rotate(-1.5deg);
+}
+
+.bc-card-decks {
+  position: absolute;
+  z-index: 3;
+  inset: auto 8% 8%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.bc-card-stack {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  color: #fff;
+  font: 700 9px/1.2 var(--sans);
+  text-shadow: 0 1px 3px #000;
+}
+
+.bc-card-stack:first-child { transform: rotate(-8deg); }
+.bc-card-stack:last-child { transform: rotate(8deg); }
+
+.bc-card-stack img {
+  width: 68px;
+  height: 96px;
+  object-fit: cover;
+  border: 2px solid rgba(255, 215, 0, 0.9);
+  border-radius: 6px;
+  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.7);
 }
 
 /* ── Komplex labels (hiasan kecil di tengah) ─────────────────── */

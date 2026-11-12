@@ -56,7 +56,7 @@ export default function EndScreen({ game, onRestart }) {
                 {p.isAI ? ' 🤖' : ''}
                 {p.bankrupt ? ' (bangkrut)' : ''}
               </span>
-              <span className="end-rank-worth">${fmt(p.worth)}</span>
+              <span className="end-rank-worth">Rp {fmt(p.worth)}</span>
             </div>
           ))}
         </div>
@@ -73,7 +73,7 @@ export default function EndScreen({ game, onRestart }) {
           <div className="end-stat">
             <span className="end-stat-label">💰 Kas Puncak</span>
             <span className="end-stat-val">
-              {richest?.name} (${fmt(richest?.stats?.peakMoney ?? 0)})
+              {richest?.name} (Rp {fmt(richest?.stats?.peakMoney ?? 0)})
             </span>
           </div>
           <div className="end-stat">

@@ -1,0 +1,400 @@
+{
+  "meta": {
+    "currency_reference": "MULAI/GO salary = 20000 (semua nominal x100 dari versi awal)",
+    "note": "Setiap deck: 17 kartu biasa + 4 kartu power-up (power_up=true, disimpan pemain, 1x pakai)."
+  },
+  "community_chest": [
+    {
+      "id": "dana_01",
+      "type": "community_chest",
+      "text": "Kamu menang undian di bandara. Terima 10.000.",
+      "action": "receive",
+      "amount": 10000
+    },
+    {
+      "id": "dana_02",
+      "type": "community_chest",
+      "text": "Kelebihan bayar tiket pesawat dikembalikan. Terima 5.000.",
+      "action": "receive",
+      "amount": 5000
+    },
+    {
+      "id": "dana_03",
+      "type": "community_chest",
+      "text": "Biaya pengurusan visa. Bayar 6.000.",
+      "action": "pay",
+      "amount": 6000
+    },
+    {
+      "id": "dana_04",
+      "type": "community_chest",
+      "text": "Kopermu hilang di bandara dan kamu harus ganti rugi. Bayar 4.000.",
+      "action": "pay",
+      "amount": 4000
+    },
+    {
+      "id": "dana_05",
+      "type": "community_chest",
+      "text": "Bebas dari Penjara. Simpan kartu ini sampai dipakai (boleh dijual ke pemain lain).",
+      "action": "get_out_of_jail_card",
+      "tradable": true
+    },
+    {
+      "id": "dana_06",
+      "type": "community_chest",
+      "text": "Masuk Penjara. Langsung ke penjara, jangan lewat MULAI, jangan ambil 20.000.",
+      "action": "go_to_jail",
+      "pass_go_bonus": false
+    },
+    {
+      "id": "dana_07",
+      "type": "community_chest",
+      "text": "Teman-teman patungan beliin oleh-oleh untukmu. Terima 2.000 dari setiap pemain.",
+      "action": "receive_from_each_player",
+      "amount": 2000
+    },
+    {
+      "id": "dana_08",
+      "type": "community_chest",
+      "text": "Kamu jual souvenir di pasar malam. Terima 7.500.",
+      "action": "receive",
+      "amount": 7500
+    },
+    {
+      "id": "dana_09",
+      "type": "community_chest",
+      "text": "Biaya berobat saat liburan. Bayar 10.000.",
+      "action": "pay",
+      "amount": 10000
+    },
+    {
+      "id": "dana_10",
+      "type": "community_chest",
+      "text": "Foto perjalananmu menang lomba. Terima 15.000.",
+      "action": "receive",
+      "amount": 15000
+    },
+    {
+      "id": "dana_11",
+      "type": "community_chest",
+      "text": "Premi asuransi perjalanan jatuh tempo. Bayar 5.000.",
+      "action": "pay",
+      "amount": 5000
+    },
+    {
+      "id": "dana_12",
+      "type": "community_chest",
+      "text": "Warisan dari paman di luar negeri. Terima 20.000.",
+      "action": "receive",
+      "amount": 20000
+    },
+    {
+      "id": "dana_13",
+      "type": "community_chest",
+      "text": "Maju ke MULAI. Terima 20.000.",
+      "action": "move_to",
+      "target": "go",
+      "pass_go_bonus": true
+    },
+    {
+      "id": "dana_14",
+      "type": "community_chest",
+      "text": "Kamu traktir semua orang makan malam. Bayar 1.500 ke setiap pemain.",
+      "action": "pay_each_player",
+      "amount": 1500
+    },
+    {
+      "id": "dana_15",
+      "type": "community_chest",
+      "text": "Renovasi properti. Bayar 4.000 per rumah dan 11.500 per hotel.",
+      "action": "repair",
+      "per_house": 4000,
+      "per_hotel": 11500
+    },
+    {
+      "id": "dana_16",
+      "type": "community_chest",
+      "text": "Investasimu untung. Terima 12.000.",
+      "action": "receive",
+      "amount": 12000
+    },
+    {
+      "id": "dana_17",
+      "type": "community_chest",
+      "text": "Denda kelebihan bagasi. Bayar 3.000.",
+      "action": "pay",
+      "amount": 3000
+    },
+    {
+      "id": "dana_18",
+      "type": "community_chest",
+      "text": "Power Up: Diskon Properti. Beli satu properti dengan diskon 50%.",
+      "action": "power_discount_next_buy",
+      "power_up": true,
+      "name": "Diskon Properti",
+      "rarity": "rare",
+      "uses": 1,
+      "tradable": false,
+      "discount": 0.5
+    },
+    {
+      "id": "dana_19",
+      "type": "community_chest",
+      "text": "Power Up: Gratis Bangun. Bangun 1 rumah tanpa bayar.",
+      "action": "power_free_house",
+      "power_up": true,
+      "name": "Gratis Bangun",
+      "rarity": "rare",
+      "uses": 1,
+      "tradable": false
+    },
+    {
+      "id": "dana_20",
+      "type": "community_chest",
+      "text": "Power Up: Sewa Ganda. Sewa berikutnya yang kamu terima menjadi 2x lipat.",
+      "action": "power_double_rent",
+      "power_up": true,
+      "name": "Sewa Ganda",
+      "rarity": "epic",
+      "uses": 1,
+      "tradable": false,
+      "multiplier": 2
+    },
+    {
+      "id": "dana_21",
+      "type": "community_chest",
+      "text": "Power Up: Asuransi. Batalkan 1 denda, pajak, atau kartu bayar.",
+      "action": "power_insurance",
+      "power_up": true,
+      "name": "Asuransi",
+      "rarity": "common",
+      "uses": 1,
+      "tradable": false
+    }
+  ],
+  "chance": [
+    {
+      "id": "kes_01",
+      "type": "chance",
+      "text": "Maju ke MULAI. Terima 20.000.",
+      "action": "move_to",
+      "target": "go",
+      "pass_go_bonus": true
+    },
+    {
+      "id": "kes_02",
+      "type": "chance",
+      "text": "Naik pesawat: maju ke Bandara terdekat. Kalau lewat MULAI, terima 20.000.",
+      "action": "move_to_nearest",
+      "target": "airport",
+      "pass_go_bonus": true
+    },
+    {
+      "id": "kes_03",
+      "type": "chance",
+      "text": "Mundur 3 petak.",
+      "action": "move_back",
+      "steps": 3
+    },
+    {
+      "id": "kes_04",
+      "type": "chance",
+      "text": "Maju ke petak terakhir sebelum MULAI. Kalau belum ada yang punya, boleh langsung beli.",
+      "action": "move_to",
+      "target": "last_tile_before_go",
+      "offer_buy": true,
+      "pass_go_bonus": false
+    },
+    {
+      "id": "kes_05",
+      "type": "chance",
+      "text": "Bebas dari Penjara. Simpan kartu ini sampai dipakai.",
+      "action": "get_out_of_jail_card",
+      "tradable": true
+    },
+    {
+      "id": "kes_06",
+      "type": "chance",
+      "text": "Masuk Penjara. Langsung ke penjara, jangan lewat MULAI.",
+      "action": "go_to_jail",
+      "pass_go_bonus": false
+    },
+    {
+      "id": "kes_07",
+      "type": "chance",
+      "text": "Tiket keliling dunia: maju ke petak negara mana pun yang belum dimiliki dan boleh langsung dibeli.",
+      "action": "move_to_any_unowned_property",
+      "offer_buy": true,
+      "pass_go_bonus": true
+    },
+    {
+      "id": "kes_08",
+      "type": "chance",
+      "text": "Dividen saham. Terima 5.000.",
+      "action": "receive",
+      "amount": 5000
+    },
+    {
+      "id": "kes_09",
+      "type": "chance",
+      "text": "Kena tilang. Bayar 1.500.",
+      "action": "pay",
+      "amount": 1500
+    },
+    {
+      "id": "kes_10",
+      "type": "chance",
+      "text": "Kamu jadi ketua panitia konferensi internasional. Bayar 5.000 ke setiap pemain.",
+      "action": "pay_each_player",
+      "amount": 5000
+    },
+    {
+      "id": "kes_11",
+      "type": "chance",
+      "text": "Pinjaman jatuh tempo, tapi kamu dapat cair duluan. Terima 15.000.",
+      "action": "receive",
+      "amount": 15000
+    },
+    {
+      "id": "kes_12",
+      "type": "chance",
+      "text": "Perbaikan fasilitas umum. Bayar 2.500 per rumah dan 10.000 per hotel.",
+      "action": "repair",
+      "per_house": 2500,
+      "per_hotel": 10000
+    },
+    {
+      "id": "kes_13",
+      "type": "chance",
+      "text": "Maju ke Stasiun/Pelabuhan terdekat. Kalau ada pemiliknya, bayar sewa 2x lipat.",
+      "action": "move_to_nearest",
+      "target": "station_or_port",
+      "rent_multiplier": 2,
+      "pass_go_bonus": true
+    },
+    {
+      "id": "kes_14",
+      "type": "chance",
+      "text": "Kamu menang kuis wisata. Terima 10.000.",
+      "action": "receive",
+      "amount": 10000
+    },
+    {
+      "id": "kes_15",
+      "type": "chance",
+      "text": "Pajak barang mewah di bea cukai. Bayar 7.500.",
+      "action": "pay",
+      "amount": 7500
+    },
+    {
+      "id": "kes_16",
+      "type": "chance",
+      "text": "Angin kencang membawamu maju 5 petak.",
+      "action": "move_forward",
+      "steps": 5
+    },
+    {
+      "id": "kes_17",
+      "type": "chance",
+      "text": "Kamu menemukan dompet berisi uang di terminal. Terima 3.000.",
+      "action": "receive",
+      "amount": 3000
+    },
+    {
+      "id": "kes_18",
+      "type": "chance",
+      "text": "Power Up: Dadu Emas. Pilih angka satu dadu pada lemparan berikutnya.",
+      "action": "power_golden_die",
+      "power_up": true,
+      "name": "Dadu Emas",
+      "rarity": "epic",
+      "uses": 1,
+      "tradable": false
+    },
+    {
+      "id": "kes_19",
+      "type": "chance",
+      "text": "Power Up: Lempar Ulang. Ulangi lemparan dadumu satu kali.",
+      "action": "power_reroll",
+      "power_up": true,
+      "name": "Lempar Ulang",
+      "rarity": "common",
+      "uses": 1,
+      "tradable": false
+    },
+    {
+      "id": "kes_20",
+      "type": "chance",
+      "text": "Power Up: Giliran Ganda. Langsung main sekali lagi.",
+      "action": "power_extra_turn",
+      "power_up": true,
+      "name": "Giliran Ganda",
+      "rarity": "epic",
+      "uses": 1,
+      "tradable": false
+    },
+    {
+      "id": "kes_21",
+      "type": "chance",
+      "text": "Power Up: Tiket Pesawat. Pindah ke bandara atau stasiun mana pun.",
+      "action": "power_ticket_station",
+      "power_up": true,
+      "name": "Tiket Pesawat",
+      "rarity": "rare",
+      "uses": 1,
+      "tradable": false,
+      "target": "airport_or_station"
+    }
+  ],
+  "special_optional": [
+    {
+      "id": "khusus_01",
+      "type": "chance",
+      "text": "Festival Budaya: pemilik properti di negara Asia terima 5.000 dari bank.",
+      "action": "bank_pays_owners_of_region",
+      "region": "asia",
+      "amount": 5000,
+      "optional": true
+    },
+    {
+      "id": "khusus_02",
+      "type": "chance",
+      "text": "Embargo Dagang: pilih satu pemain. Dia tidak bisa menarik sewa dari satu grup warna pilihanmu selama 2 giliran.",
+      "action": "rent_embargo",
+      "turns": 2,
+      "choose_player": true,
+      "choose_color_group": true,
+      "optional": true
+    },
+    {
+      "id": "khusus_03",
+      "type": "chance",
+      "text": "Tur Eropa: maju ke properti Eropa terdekat. Kalau belum ada pemiliknya, beli dengan diskon 50%.",
+      "action": "move_to_nearest",
+      "target": "property_region:europe",
+      "offer_buy": true,
+      "buy_discount": 0.5,
+      "pass_go_bonus": true,
+      "optional": true
+    },
+    {
+      "id": "khusus_04",
+      "type": "chance",
+      "text": "Krisis Mata Uang: semua sewa di negara dengan hotel naik 1,5x sampai giliranmu berikutnya.",
+      "action": "rent_multiplier_global",
+      "condition": "has_hotel",
+      "multiplier": 1.5,
+      "duration": "until_your_next_turn",
+      "optional": true
+    },
+    {
+      "id": "khusus_05",
+      "type": "chance",
+      "text": "Paspor Diplomatik: bebas bayar sewa satu kali. Simpan kartunya sampai dipakai.",
+      "action": "skip_rent_card",
+      "uses": 1,
+      "tradable": true,
+      "optional": true
+    }
+  ]
+}

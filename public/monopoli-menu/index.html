@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Monopoli Indonesia</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="stylesheet" href="css/page.css">
+<link rel="stylesheet" href="css/ui.css">
+</head>
+<body>
+<div id="menu-root">
+<canvas id="c"></canvas>
+<div id="ui">
+  <img id="logo" alt="Monopoli Indonesia">
+  <nav id="menu">
+    <button class="bt" style="--i:0" data-a="offline" aria-label="Bermain Offline"><img data-s="b_offline" alt=""></button>
+    <button class="bt" style="--i:1" data-a="online" aria-label="Bermain Online"><img data-s="b_online" alt=""></button>
+    <button class="bt" style="--i:2" data-a="save" aria-label="Save"><img data-s="b_save" alt=""></button>
+    <button class="bt" style="--i:3" data-a="option" aria-label="Option"><img data-s="b_option" alt=""></button>
+  </nav>
+</div>
+<div id="setup"><div id="stage">
+<button class="pc btn" id="bkBtn" aria-label="Kembali" style="left:24px;top:24px;width:271px;height:116px;--k:0.74"><img data-s="back" alt=""></button>
+<div class="pc" style="left:360px;top:6px;width:974px;height:232px;--k:0.9035"><img data-s="banner" alt="Persiapan Permainan - Bermain Offline"></div>
+<div class="pc" style="left:96px;top:228px;width:908px;height:570px;--k:0.98"><img data-s="panel" alt=""><div id="slots"></div></div>
+<div class="pc" style="left:1050px;top:182px;width:522px;height:354px;--k:0.87"><img data-s="peta" alt="">
+ <img id="pv" class="a" style="left:76px;top:121px;width:350px;height:174px" alt="">
+ <div id="mapName" class="tx a" style="left:90px;top:296px;width:320px;height:36px;font-size:30px;--sw:5px"></div>
+ <button class="hit a" id="mpL" aria-label="Peta sebelumnya" style="left:14px;top:168px;width:70px;height:82px"></button>
+ <button class="hit a" id="mpR" aria-label="Peta berikutnya" style="left:424px;top:168px;width:70px;height:82px"></button></div>
+<div class="pc" style="left:1050px;top:491px;width:502px;height:228px;--k:0.87"><img data-s="aturan" alt="">
+ <div id="money" class="tx a" style="left:226px;top:88px;width:190px;height:38px;font-size:29px;--sw:0px;text-shadow:0 2px 0 rgba(0,0,0,.6)"></div>
+ <button class="hit a" id="mPlus" aria-label="Tambah modal" style="left:170px;top:78px;width:56px;height:56px"></button>
+ <button class="hit a" id="mMin" aria-label="Kurangi modal" style="left:416px;top:78px;width:56px;height:56px"></button>
+ <button class="sp a" id="spN" aria-label="Kecepatan normal" style="left:178px;top:141px;width:144px;height:62px"></button>
+ <button class="sp a" id="spC" aria-label="Kecepatan cepat" style="left:333px;top:141px;width:143px;height:62px"></button></div>
+<button class="pc btn" id="go" aria-label="Mulai Game" style="left:1044px;top:702px;width:556px;height:160px;--k:0.8"><img data-s="mulai" alt=""></button>
+</div></div>
+<div id="lobby"><div id="stage2">
+<button class="pc btn" id="lbBack" aria-label="Kembali" style="left:20px;top:20px;width:288px;height:122px;--k:0.7"><img data-s="l_back" alt=""></button>
+<div class="pc" style="left:499px;top:4px;width:860px;height:311px;--k:0.7"><img data-s="l_banner" alt="Bermain Online - Lobby Multiplayer"></div>
+<div class="pc" style="left:82px;top:222px;width:428px;height:592px;--k:0.93"><img data-s="l_main" alt="">
+ <div id="lbActive" class="tx a y" style="left:24px;top:420px;width:380px;height:36px;font-size:28px;--sw:6px;--sc:#0a2a66"></div>
+ <button class="hr a" id="lbQuick" aria-label="Mulai Cari" style="--r:48px;left:29px;top:470px;width:372px;height:93px"></button></div>
+<div class="pc" style="left:488px;top:224px;width:416px;height:586px;--k:0.93"><img data-s="l_buat" alt="">
+ <div id="lbMap" class="tx a" style="left:157px;top:271px;width:220px;height:34px;font-size:25px;--sw:5px;--sc:#3b1c00"></div>
+ <div id="lbPl" class="tx a" style="left:157px;top:317px;width:220px;height:34px;font-size:25px;--sw:5px;--sc:#3b1c00"></div>
+ <button class="hr a" id="lbMapBtn" aria-label="Ganti peta" style="--r:12px;left:34px;top:260px;width:344px;height:52px"></button>
+ <button class="hr a" id="lbPlBtn" aria-label="Ganti jumlah pemain" style="--r:12px;left:34px;top:312px;width:344px;height:52px"></button>
+ <button class="hr a" id="lbCreate" aria-label="Buat Kamar" style="--r:48px;left:26px;top:466px;width:368px;height:98px"></button></div>
+<div class="pc" style="left:883px;top:224px;width:398px;height:586px;--k:0.93"><img data-s="l_gabung" alt="">
+ <input id="lbRoom" class="a" maxlength="8" autocomplete="off" spellcheck="false" aria-label="ID kamar" placeholder="Masukkan ID Kamar…" style="left:44px;top:392px;width:310px;height:57px">
+ <button class="hr a" id="lbJoin" aria-label="Gabung" style="--r:48px;left:27px;top:466px;width:350px;height:95px"></button></div>
+<div class="pc" style="left:1261px;top:224px;width:276px;height:568px;--k:0.93"><img data-s="l_teman" alt="">
+ <div id="lbFTitle" class="tx a y" style="left:8px;top:37px;width:260px;height:36px;font-size:27px;--sw:5px;--sc:#000"></div>
+ <div id="lbFriends" class="fl a" style="left:16px;top:96px;width:244px;height:365px"></div>
+ <button class="hr a" id="lbAddF" aria-label="Tambah Teman" style="--r:30px;left:28px;top:471px;width:220px;height:60px"></button></div>
+<div class="pc" style="left:359px;top:786px;width:948px;height:94px;--k:0.93"><img data-s="l_status" alt="">
+ <div id="lbSrv" class="st a" style="left:76px;top:30px;width:520px;height:36px"></div>
+ <div id="lbTot" class="st a" style="left:609px;top:30px;width:320px;height:36px"></div></div>
+</div></div>
+<div class="ov" id="addf"><div class="card"><h2>Tambah Teman</h2>
+ <input id="addfIn" class="fin" maxlength="20" autocomplete="off" placeholder="ID atau username teman">
+ <button class="close" id="addfOk">Kirim Permintaan</button><button class="close ghost" id="addfNo">Batal</button></div></div>
+<div id="pop"><div id="stage3">
+<div class="sc" id="pQ">
+ <img class="bg fd on" id="qb1" data-s="p_q1" alt="Mencari Lawan">
+ <img class="bg fd" id="qb2" data-s="p_q2" alt="Lawan Ditemukan">
+ <i class="ins" style="left:217px;top:339px;width:590px;height:148px"></i>
+ <div id="qT" class="t2 a sr" style="left:380px;top:287px;width:260px;height:22px;font-size:17px;line-height:22px"></div>
+ <div id="qE" class="t2 a sr" style="left:380px;top:312px;width:260px;height:22px;font-size:17px;line-height:22px"></div>
+ <div id="qCd" class="t2 st a fo" style="left:337px;top:276px;width:350px;height:40px;font-size:34px;line-height:40px;color:#ffc43a;--sc:#5a2500"></div>
+ <div id="qSub" class="t2 a fo" style="left:337px;top:318px;width:350px;height:20px;font-size:14px;line-height:20px">Semua pemain telah terhubung!</div>
+ <div id="qSl" class="a" style="left:0;top:0;width:1024px;height:572px;pointer-events:none"></div>
+ <div id="qLeft" class="t2 a sr" style="left:217px;top:497px;width:200px;height:18px;font-size:13.5px;line-height:18px;text-align:left;color:#e6cfa0"></div>
+ <button class="hr a sr" id="qCancel" aria-label="Batal" style="--r:34px;left:408px;top:494px;width:209px;height:64px"></button>
+</div>
+<div class="sc" id="pC">
+ <img class="bg" data-s="p_c" alt="Buat Kamar">
+ <img id="cMapImg" class="a" data-s="p_map" style="left:211px;top:214px;width:223px;height:185px;object-fit:cover;pointer-events:none" alt="">
+ <div id="cMapT" class="t2 st a" style="left:226px;top:184px;width:190px;height:28px;font-size:20px;line-height:28px;color:#ffe7b0"></div>
+ <div id="cMapB" class="t2 st a" style="left:226px;top:404px;width:190px;height:28px;font-size:20px;line-height:28px;color:#ffe7b0"></div>
+ <div id="cType" class="t2 a" style="left:688px;top:222px;width:100px;height:22px;font-size:15px;line-height:22px"></div>
+ <div id="cChips" class="a" style="left:0;top:0;width:0;height:0"></div>
+ <button class="hr a" id="cL" aria-label="Peta sebelumnya" style="--r:50%;left:165px;top:272px;width:48px;height:56px"></button>
+ <button class="hr a" id="cR" aria-label="Peta berikutnya" style="--r:50%;left:433px;top:272px;width:48px;height:56px"></button>
+ <button class="hr a" id="cBack" aria-label="Kembali" style="--r:34px;left:420px;top:477px;width:186px;height:64px"></button>
+ <button class="hr a" id="cOk" aria-label="Buat Kamar" style="--r:34px;left:617px;top:479px;width:216px;height:66px"></button>
+ <button class="hr a" id="cX" aria-label="Tutup" style="--r:50%;left:842px;top:70px;width:44px;height:44px"></button>
+</div>
+<div class="sc" id="pR">
+ <img class="bg" data-s="p_r" alt="Lobi Kamar">
+ <div id="rId" class="t2 st a" style="left:383px;top:113px;width:202px;height:28px;font-size:21px;line-height:28px;color:#fff;--sc:#12306a"></div>
+ <button class="hr a" id="rCopy" aria-label="Salin ID" style="--r:20px;left:588px;top:111px;width:86px;height:32px"></button>
+ <img id="rMapImg" class="a" data-s="p_map" style="left:182px;top:223px;width:140px;height:93px;object-fit:cover;border-radius:3px;pointer-events:none" alt="">
+ <div id="rMapL" class="t2 st a" style="left:181px;top:197px;width:140px;height:22px;font-size:13px;line-height:22px;color:#ffe7b0"></div>
+ <div id="rInfo" class="a" style="left:0;top:0;width:0;height:0"></div>
+ <div id="rSl" class="a" style="left:0;top:0;width:0;height:0"></div>
+ <div id="rHint" class="t2 a" style="left:358px;top:478px;width:278px;height:36px;font-size:14px;line-height:18px;white-space:normal;color:#f1dcb4"></div>
+ <button class="hr a" id="rDis" aria-label="Bubarkan Kamar" style="--r:30px;left:175px;top:478px;width:158px;height:67px"></button>
+ <button class="hr a" id="rGo" aria-label="Mulai Game" style="--r:34px;left:645px;top:482px;width:203px;height:64px"></button>
+ <button class="hr a" id="rX" aria-label="Tutup" style="--r:50%;left:842px;top:70px;width:44px;height:44px"></button>
+</div>
+<div class="sc" id="pF">
+ <img class="bg" data-s="p_f" alt="Tambah Teman">
+ <input id="fIn" class="a" maxlength="24" autocomplete="off" spellcheck="false" aria-label="Cari teman" placeholder="Cari Nama atau ID Teman…" style="left:262px;top:139px;width:322px;height:44px">
+ <div id="fList" class="a" style="left:216px;top:223px;width:596px;height:192px"></div>
+ <button class="hr a" id="fSearch" aria-label="Cari" style="--r:30px;left:688px;top:135px;width:137px;height:55px"></button>
+ <button class="hr a" id="fBack" aria-label="Kembali" style="--r:34px;left:420px;top:430px;width:186px;height:66px"></button>
+ <button class="hr a" id="fX" aria-label="Tutup" style="--r:50%;left:815px;top:52px;width:60px;height:60px"></button>
+</div>
+</div></div>
+<div class="ov" id="opt"><div class="card">
+  <h2>Option</h2>
+  <div class="row">Musik<button class="sw on" data-k="music" aria-label="Musik"></button></div>
+  <div class="row">Efek suara<button class="sw on" data-k="sfx" aria-label="Efek suara"></button></div>
+  <div class="row">Getar<button class="sw on" data-k="vibrate" aria-label="Getar"></button></div>
+  <button class="close" id="optClose">Tutup</button>
+</div></div>
+<div id="toast"></div>
+<div id="rot">Putar perangkatmu ke mode landscape 📱↔️</div>
+</div>
+
+<script src="js/assets.js"></script>
+<script src="js/core.js"></script>
+<script src="js/screen-setup.js"></script>
+<script src="js/screen-lobby.js"></script>
+<script src="js/screen-popups.js"></script>
+<script src="js/game-bridge.js"></script>
+</body>
+</html>

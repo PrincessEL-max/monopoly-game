@@ -1,33 +1,21 @@
 // ============================================================
 // BuyModal.jsx — Modal tawaran beli properti.
 // Muncul saat waitingFor === 'BUY_DECISION'.
-// Menampilkan "kartu hak milik" (title deed): strip warna komplex,
-// foto landmark, harga, dan tabel sewa lengkap. Tombol Beli / Lewati.
+// Menampilkan kartu hak milik asli dari aset Millionaire Indonesia ZIP.
+// Aksi Beli / Lewati tetap menggunakan reducer game yang sudah ada.
 //
 // Tidak menyentuh logic — hanya memanggil aksi buyProperty / declineBuy
 // yang sudah ada di useGameState.
 // ============================================================
 
 import React from 'react';
-import { KOMPLEX_COLORS } from '../../constants/squares';
-import { getRentTable } from '../../logic/rentLogic';
-import { getImage } from '../../constants/images';
+import { getPropertyCardImage } from '../../constants/millionaireAssets';
 import { useLandingDelay } from '../../hooks/useLandingDelay';
 
 const fmt = (n) => (typeof n === 'number' ? n.toLocaleString('id-ID') : n);
 
-// Warna strip untuk tipe non-properti
-const TYPE_BAR = {
-  airport: '#37474f',
-  utility: '#00838f',
-};
-const TYPE_TAG = {
-  airport: 'Bandara',
-  utility: 'Utilitas',
-};
-
 export default function BuyModal({ game }) {
-  const { waitingFor, landResult, currentPlayer, buyProperty, declineBuy } = game;
+  const { waitingFor, landResult, currentPlayer, buyProperty, declineBuy, usePowerUp } = game;
 
   const active = waitingFor === 'BUY_DECISION' && !!landResult?.square && !currentPlayer?.isAI;
   // Tunggu animasi jalan bidak selesai sebelum modal muncul
@@ -37,68 +25,41 @@ export default function BuyModal({ game }) {
   if (!active || !ready) return null;
 
   const sq = landResult.square;
-  const bar = sq.komplex ? KOMPLEX_COLORS[sq.komplex] : (TYPE_BAR[sq.type] ?? '#555');
-  const photo = getImage(sq.image, '');
-  const rentTable = getRentTable(sq, game);
-  const canAfford = currentPlayer.money >= sq.price;
+  const cardImage = getPropertyCardImage(sq);
+  const discountCard = currentPlayer.powerUps?.find(
+    (card) => card.action === 'power_discount_next_buy'
+  );
+  const discountedPrice = currentPlayer.powerUpEffects?.discountNextBuy
+    ? Math.floor(sq.price / 2)
+    : sq.price;
+  const canAfford = currentPlayer.money >= discountedPrice;
 
   return (
-    <div className="modal-overlay">
-      <div className="modal">
-        <div className="modal-head">
-          <h3 className="modal-title">Properti Tersedia</h3>
+    <div className="modal-overlay property-card-overlay">
+      <div className="property-offer">
+        <div className="property-offer-caption">
+          <strong>{sq.name}</strong>
+          <span>Kartu hak milik</span>
         </div>
-
-        <div className="modal-body">
-          <div className="deed">
-            <div className="deed-bar" style={{ '--bar': bar }}>
-              {photo && (
-                <div
-                  className="deed-bar-photo"
-                  style={{ backgroundImage: `url(${photo})` }}
-                />
-              )}
-              <span className="deed-bar-name">{sq.name}</span>
-            </div>
-
-            {sq.subtitle && <div className="deed-sub">{sq.subtitle}</div>}
-            {!sq.komplex && TYPE_TAG[sq.type] && (
-              <span className="deed-type-tag" style={{ '--bar': bar }}>
-                {TYPE_TAG[sq.type]}
-              </span>
-            )}
-
-            <ul className="rent-table">
-              {rentTable.map((r, i) => (
-                <li
-                  key={i}
-                  className={`rent-row ${r.highlight ? 'rent-row--hl' : ''}`}
-                >
-                  <span className="rent-label">{r.label}</span>
-                  <span className="rent-amt">
-                    {typeof r.amount === 'number' ? `$${fmt(r.amount)}` : r.amount}
-                  </span>
-                </li>
-              ))}
-            </ul>
-
-            <div className="deed-foot-info">
-              {sq.houseCost ? (
-                <span>Bangun: <b>${fmt(sq.houseCost)}</b>/unit</span>
-              ) : <span />}
-              <span>Gadai: <b>${fmt(Math.floor(sq.price / 2))}</b></span>
-            </div>
-          </div>
-
-          <div className="buy-price">
-            Harga beli: <strong>${fmt(sq.price)}</strong>
-          </div>
-          <div className="modal-note">
-            Uangmu saat ini: <strong>${fmt(currentPlayer.money)}</strong>
-          </div>
+        <img
+          className="property-card-art"
+          src={cardImage}
+          alt={`Kartu properti ${sq.name}`}
+          draggable={false}
+        />
+        <div className="property-offer-summary">
+          <span>Harga beli: <strong>Rp {fmt(discountedPrice)}</strong></span>
+          <span>Uangmu: <strong>Rp {fmt(currentPlayer.money)}</strong></span>
         </div>
-
-        <div className="modal-foot">
+        {discountCard && !currentPlayer.powerUpEffects?.discountNextBuy && (
+          <button
+            className="btn property-discount"
+            onClick={() => usePowerUp({ cardId: discountCard.id })}
+          >
+            Aktifkan diskon 50%
+          </button>
+        )}
+        <div className="property-offer-actions">
           <button className="btn btn-ghost" onClick={declineBuy}>
             Lewati
           </button>
@@ -107,7 +68,7 @@ export default function BuyModal({ game }) {
             disabled={!canAfford}
             onClick={() => buyProperty(sq.id)}
           >
-            Beli (${fmt(sq.price)})
+            Beli · Rp {fmt(discountedPrice)}
           </button>
         </div>
       </div>

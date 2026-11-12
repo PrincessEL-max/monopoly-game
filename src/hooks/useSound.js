@@ -69,13 +69,14 @@ export const useSound = () => {
     }
   }, [enabled, ensureCtx]);
 
-  const toggle = useCallback(() => {
+  const setSoundEnabled = useCallback((value) => {
     setEnabled((prev) => {
-      const next = !prev;
+      const next = typeof value === 'function' ? value(prev) : Boolean(value);
       try { window.localStorage.setItem(PREF_KEY, next ? '1' : '0'); } catch { /* ignore */ }
       return next;
     });
   }, []);
+  const toggle = useCallback(() => setSoundEnabled((prev) => !prev), [setSoundEnabled]);
 
-  return { play, enabled, toggle };
+  return { play, enabled, toggle, setEnabled: setSoundEnabled };
 };

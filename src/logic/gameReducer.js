@@ -27,6 +27,9 @@ export const ACTIONS = {
   DISMISS_CARD:        'DISMISS_CARD',
   PAY_JAIL_FINE:       'PAY_JAIL_FINE',
   USE_JAIL_FREE_CARD:  'USE_JAIL_FREE_CARD',
+  USE_POWER_UP:        'USE_POWER_UP',
+  ACCEPT_REROLL:       'ACCEPT_REROLL',
+  KEEP_REROLL:         'KEEP_REROLL',
   BUY_HOUSE:           'BUY_HOUSE',
   BUY_HOTEL:           'BUY_HOTEL',
   SELL_HOUSE:          'SELL_HOUSE',
@@ -49,6 +52,15 @@ export const ACTIONS = {
 // ─────────────────────────────────────────────────────────────
 
 const fmt = (n) => n?.toLocaleString('id-ID') ?? '0';
+const EMPTY_POWER_UP_EFFECTS = {
+  discountNextBuy: false,
+  freeHouse: false,
+  doubleRentNext: false,
+  insurance: false,
+  goldenDie: null,
+  rerollReady: false,
+  bonusTurns: 0,
+};
 
 /**
  * Selesaikan kebangkrutan: likuidasi aset ke kreditor/bank, lalu cek
@@ -127,7 +139,7 @@ const continueCardPayments = (state, payments, returnPlayerId) => {
       }),
       log: addLog(
         nextState.log,
-        `${payer.name} membayar $${fmt(payment.amount)} ke ${creditor.name}.`
+        `${payer.name} membayar Rp ${fmt(payment.amount)} ke ${creditor.name}.`
       ),
     };
   }
@@ -187,7 +199,7 @@ const finalizeAuction = (state, winnerId, amount) => {
     ),
     owners: { ...state.owners, [state.auction.squareId]: winnerId },
     auction: null, waitingFor: null, canRoll: false, landResult: null,
-    log: addLog(state.log, `${winner?.name} memenangkan lelang ${sq?.name} seharga $${fmt(amount)}.`),
+    log: addLog(state.log, `${winner?.name} memenangkan lelang ${sq?.name} seharga Rp ${fmt(amount)}.`),
   };
 };
 
@@ -195,13 +207,13 @@ const finalizeAuction = (state, winnerId, amount) => {
 // REDUCER
 // ─────────────────────────────────────────────────────────────
 
-export const reducer = (state, action) => {
+const reduceGame = (state, action) => {
   switch (action.type) {
 
     // ── START GAME ────────────────────────────────────────────
     case ACTIONS.START_GAME: {
       return {
-        ...createInitialState(action.playerSetups),
+        ...createInitialState(action.playerSetups, action.settings),
         phase: 'playing',
       };
     }
@@ -213,7 +225,31 @@ export const reducer = (state, action) => {
       if (state.phase !== 'playing') return state;
       if (state.waitingFor) return state; // sedang tunggu aksi pemain
 
-      const roll = rollDice();
+      const effects = { ...EMPTY_POWER_UP_EFFECTS, ...player.powerUpEffects };
+      const hasReroll = effects.rerollReady;
+      const roll = action.rollOverride || rollDice(effects.goldenDie);
+      if (effects.goldenDie != null || hasReroll) {
+        player = {
+          ...player,
+          powerUpEffects: { ...effects, goldenDie: null, rerollReady: false },
+        };
+        state = {
+          ...state,
+          players: players.map((p, i) => i === currentPlayerIndex ? player : p),
+        };
+      }
+
+      if (hasReroll) {
+        return {
+          ...state,
+          lastRoll: roll,
+          pendingReroll: roll,
+          waitingFor: 'REROLL_DECISION',
+          canRoll: false,
+          log: addLog(state.log, `${player.name} dapat memilih untuk melempar ulang dadu.`),
+        };
+      }
+
       const { d1, d2, total, isDouble } = roll;
 
       // Cek triple double → penjara
@@ -270,7 +306,7 @@ export const reducer = (state, action) => {
       let newPlayers = state.players.map((p, i) => i === currentPlayerIndex ? updatedPlayer : p);
       let newLog = addLog(
         state.log,
-        `${player.name} lempar ${d1}+${d2}=${total}${passedGo ? `, lewat START (+$${goBonus.toLocaleString('id-ID')})` : ''}, ke petak ${newPos}.`
+        `${player.name} lempar ${d1}+${d2}=${total}${passedGo ? `, lewat MULAI (+Rp ${fmt(goBonus)})` : ''}, ke petak ${newPos}.`
       );
 
       // Proses landing
@@ -317,10 +353,28 @@ export const reducer = (state, action) => {
                   : p
               ),
               freeParkingPool: 0,
-              log: addLog(newLog, `${player.name} dapat Parkir Gratis: $${state.freeParkingPool.toLocaleString('id-ID')}!`),
+              log: addLog(newLog, `${player.name} dapat Parkir Gratis: Rp ${fmt(state.freeParkingPool)}!`),
             }
           : {}),
       };
+    }
+
+    case ACTIONS.ACCEPT_REROLL: {
+      if (state.waitingFor !== 'REROLL_DECISION' || !state.pendingReroll) return state;
+      return reduceGame({
+        ...state,
+        pendingReroll: null,
+        waitingFor: null,
+      }, { type: ACTIONS.ROLL_DICE, rollOverride: rollDice() });
+    }
+
+    case ACTIONS.KEEP_REROLL: {
+      if (state.waitingFor !== 'REROLL_DECISION' || !state.pendingReroll) return state;
+      return reduceGame({
+        ...state,
+        pendingReroll: null,
+        waitingFor: null,
+      }, { type: ACTIONS.ROLL_DICE, rollOverride: state.pendingReroll });
     }
 
     // ── BELI PROPERTI ─────────────────────────────────────────
@@ -330,11 +384,19 @@ export const reducer = (state, action) => {
       const square = SQUARES.find((s) => s.id === action.squareId);
       if (!square) return state;
 
-      const result = buyProperty(player, square, state);
+      const effects = { ...EMPTY_POWER_UP_EFFECTS, ...player.powerUpEffects };
+      const price = effects.discountNextBuy ? Math.floor(square.price / 2) : square.price;
+      const result = buyProperty(player, { ...square, price }, state);
       if (!result) return state;
 
       const newPlayers = players.map((p, i) =>
-        i === currentPlayerIndex ? { ...p, ...result.playerPatch } : p
+        i === currentPlayerIndex
+          ? {
+            ...p,
+            ...result.playerPatch,
+            powerUpEffects: { ...effects, discountNextBuy: false },
+          }
+          : p
       );
 
       return {
@@ -344,7 +406,7 @@ export const reducer = (state, action) => {
         landResult: null,
         waitingFor: null,
         canRoll: false,
-        log: addLog(state.log, `${player.name} membeli ${square.name} seharga $${square.price.toLocaleString('id-ID')}.`),
+        log: addLog(state.log, `${player.name} membeli ${square.name} seharga Rp ${fmt(price)}.`),
       };
     }
 
@@ -375,22 +437,29 @@ export const reducer = (state, action) => {
       const player = players[currentPlayerIndex];
       const { rentAmount, ownerId } = state.landResult;
       const owner = players.find((p) => p.id === ownerId);
+      const amount = rentAmount * (owner?.powerUpEffects?.doubleRentNext ? 2 : 1);
+      const clearDoubleRent = (list) => list.map((p) =>
+        p.id === ownerId && p.powerUpEffects?.doubleRentNext
+          ? { ...p, powerUpEffects: { ...p.powerUpEffects, doubleRentNext: false } }
+          : p
+      );
 
       // Uang tak cukup → kumpulkan dana dulu (jual/gadai) sebelum bangkrut
-      if (player.money < rentAmount) {
+      if (player.money < amount) {
         return {
           ...state,
+          players: clearDoubleRent(players),
           landResult: null,
           waitingFor: 'RAISE_FUNDS',
-          pendingDebt: { amount: rentAmount, creditorId: ownerId, kind: 'rent', alreadyApplied: false },
-          log: addLog(state.log, `${player.name} kekurangan dana untuk sewa $${fmt(rentAmount)} — harus jual/gadai aset.`),
+          pendingDebt: { amount, creditorId: ownerId, kind: 'rent', alreadyApplied: false },
+          log: addLog(state.log, `${player.name} kekurangan dana untuk sewa Rp ${fmt(amount)} — harus jual/gadai aset.`),
         };
       }
 
       const ownerIdx = players.findIndex((p) => p.id === ownerId);
-      const newPlayers = players.map((p, i) => {
-        if (i === currentPlayerIndex) return { ...p, money: p.money - rentAmount };
-        if (i === ownerIdx) return { ...p, money: p.money + rentAmount };
+      const newPlayers = clearDoubleRent(players).map((p, i) => {
+        if (i === currentPlayerIndex) return { ...p, money: p.money - amount };
+        if (i === ownerIdx) return { ...p, money: p.money + amount };
         return p;
       });
 
@@ -400,7 +469,7 @@ export const reducer = (state, action) => {
         landResult: null,
         waitingFor: null,
         canRoll: false,
-        log: addLog(state.log, `${player.name} bayar sewa $${fmt(rentAmount)} ke ${owner.name}.`),
+        log: addLog(state.log, `${player.name} bayar sewa Rp ${fmt(amount)} ke ${owner.name}.`),
       };
     }
 
@@ -409,6 +478,18 @@ export const reducer = (state, action) => {
       const { currentPlayerIndex, players, landResult, freeParkingPool } = state;
       const player = players[currentPlayerIndex];
       const amount = landResult?.taxAmount ?? 0;
+      if (player.powerUpEffects?.insurance) {
+        return {
+          ...state,
+          players: players.map((p, i) => i === currentPlayerIndex
+            ? { ...p, powerUpEffects: { ...p.powerUpEffects, insurance: false } }
+            : p),
+          landResult: null,
+          waitingFor: null,
+          canRoll: false,
+          log: addLog(state.log, `${player.name} memakai Asuransi dan membatalkan pajak.`),
+        };
+      }
 
       // Uang tak cukup → kumpulkan dana dulu
       if (player.money < amount) {
@@ -417,7 +498,7 @@ export const reducer = (state, action) => {
           landResult: null,
           waitingFor: 'RAISE_FUNDS',
           pendingDebt: { amount, creditorId: null, kind: 'tax', alreadyApplied: false },
-          log: addLog(state.log, `${player.name} kekurangan dana untuk pajak $${fmt(amount)} — harus jual/gadai aset.`),
+          log: addLog(state.log, `${player.name} kekurangan dana untuk pajak Rp ${fmt(amount)} — harus jual/gadai aset.`),
         };
       }
 
@@ -432,7 +513,7 @@ export const reducer = (state, action) => {
         landResult: null,
         waitingFor: null,
         canRoll: false,
-        log: addLog(state.log, `${player.name} membayar pajak $${fmt(amount)}.`),
+        log: addLog(state.log, `${player.name} membayar pajak Rp ${fmt(amount)}.`),
       };
     }
 
@@ -524,10 +605,108 @@ export const reducer = (state, action) => {
       return newState;
     }
 
+    case ACTIONS.USE_POWER_UP: {
+      const { currentPlayerIndex, players } = state;
+      const player = players[currentPlayerIndex];
+      const powerUpIndex = (player.powerUps || []).findIndex((card) => card.id === action.cardId);
+      if (powerUpIndex < 0 || state.phase !== 'playing') return state;
+
+      const card = player.powerUps[powerUpIndex];
+      const canUse = {
+        power_discount_next_buy: state.waitingFor === 'BUY_DECISION',
+        power_free_house: !state.waitingFor,
+        power_double_rent: !state.waitingFor,
+        power_insurance: !state.waitingFor ||
+          state.waitingFor === 'PAY_TAX' ||
+          (state.waitingFor === 'APPLY_CARD' && ['pay', 'repairs'].includes(state.activeCard?.type)),
+        power_golden_die: state.canRoll && !state.waitingFor,
+        power_reroll: state.canRoll && !state.waitingFor,
+        power_extra_turn: !state.waitingFor,
+        power_ticket_station: !state.waitingFor,
+      };
+      if (!canUse[card.action]) return state;
+
+      const powerUps = player.powerUps.filter((_, index) => index !== powerUpIndex);
+      const effects = { ...EMPTY_POWER_UP_EFFECTS, ...player.powerUpEffects };
+      let updatedEffects = effects;
+
+      switch (card.action) {
+        case 'power_discount_next_buy':
+          updatedEffects = { ...effects, discountNextBuy: true };
+          break;
+        case 'power_free_house':
+          updatedEffects = { ...effects, freeHouse: true };
+          break;
+        case 'power_double_rent':
+          updatedEffects = { ...effects, doubleRentNext: true };
+          break;
+        case 'power_insurance':
+          updatedEffects = { ...effects, insurance: true };
+          break;
+        case 'power_golden_die':
+          if (!Number.isInteger(action.choice) || action.choice < 1 || action.choice > 6) return state;
+          updatedEffects = { ...effects, goldenDie: action.choice };
+          break;
+        case 'power_reroll':
+          updatedEffects = { ...effects, rerollReady: true };
+          break;
+        case 'power_extra_turn':
+          updatedEffects = { ...effects, bonusTurns: effects.bonusTurns + 1 };
+          break;
+        case 'power_ticket_station': {
+          const square = SQUARES.find((candidate) =>
+            candidate.id === action.squareId &&
+            (candidate.type === 'airport' || candidate.type === 'utility')
+          );
+          if (!square) return state;
+
+          const movedPlayer = { ...player, powerUps, position: square.id };
+          const movedPlayers = players.map((p, index) =>
+            index === currentPlayerIndex ? movedPlayer : p
+          );
+          const landResult = processLanding(movedPlayer, square, { ...state, players: movedPlayers });
+          return {
+            ...state,
+            players: movedPlayers,
+            landResult,
+            waitingFor: resolveWaitingFor(landResult),
+            canRoll: false,
+            log: addLog(state.log, `${player.name} memakai Tiket Pesawat ke ${square.name}.`),
+          };
+        }
+        default:
+          return state;
+      }
+
+      return {
+        ...state,
+        players: players.map((p, index) => index === currentPlayerIndex
+          ? { ...p, powerUps, powerUpEffects: updatedEffects }
+          : p),
+        log: addLog(state.log, `${player.name} memakai Power Up: ${card.name || card.action}.`),
+      };
+    }
+
     // ── BAYAR DENDA PENJARA ───────────────────────────────────
     case ACTIONS.PAY_JAIL_FINE: {
       const { currentPlayerIndex, players } = state;
       const player = players[currentPlayerIndex];
+      if (player.powerUpEffects?.insurance) {
+        return {
+          ...state,
+          players: players.map((p, i) => i === currentPlayerIndex
+            ? {
+              ...p,
+              inJail: false,
+              jailTurns: 0,
+              powerUpEffects: { ...p.powerUpEffects, insurance: false },
+            }
+            : p),
+          waitingFor: null,
+          canRoll: true,
+          log: addLog(state.log, `${player.name} memakai Asuransi untuk membatalkan denda penjara.`),
+        };
+      }
       const updated = payJailFine(player);
       if (!updated) return state;
 
@@ -536,7 +715,7 @@ export const reducer = (state, action) => {
         players: players.map((p, i) => i === currentPlayerIndex ? updated : p),
         waitingFor: null,
         canRoll: true,
-        log: addLog(state.log, `${player.name} membayar denda $${RULES.JAIL_FINE.toLocaleString('id-ID')} dan bebas dari penjara.`),
+        log: addLog(state.log, `${player.name} membayar denda Rp ${fmt(RULES.JAIL_FINE)} dan bebas dari penjara.`),
       };
     }
 
@@ -559,13 +738,23 @@ export const reducer = (state, action) => {
     case ACTIONS.BUY_HOUSE: {
       const { currentPlayerIndex, players } = state;
       const player = players[currentPlayerIndex];
-      const result = buyHouse(player, action.squareId, state);
+      const freeHouse = player.powerUpEffects?.freeHouse === true;
+      const result = buyHouse(player, action.squareId, state, { free: freeHouse });
       if (!result) return state;
 
       const square = SQUARES.find((s) => s.id === action.squareId);
       return {
         ...state,
-        players: players.map((p, i) => i === currentPlayerIndex ? { ...p, ...result.playerPatch } : p),
+        players: players.map((p, i) => i === currentPlayerIndex
+          ? {
+            ...p,
+            ...result.playerPatch,
+            powerUpEffects: {
+              ...(p.powerUpEffects || {}),
+              ...(freeHouse ? { freeHouse: false } : {}),
+            },
+          }
+          : p),
         houses: { ...state.houses, ...result.housesPatch },
         housesLeft: result.housesLeft,
         log: addLog(state.log, `${player.name} membangun rumah di ${square?.name}.`),
@@ -604,7 +793,7 @@ export const reducer = (state, action) => {
         players: players.map((p, i) => i === currentPlayerIndex ? { ...p, ...result.playerPatch } : p),
         houses: { ...state.houses, ...result.housesPatch },
         housesLeft: result.housesLeft,
-        log: addLog(state.log, `${player.name} menjual rumah di ${square?.name} (+$${fmt(result.refund)}).`),
+        log: addLog(state.log, `${player.name} menjual rumah di ${square?.name} (+Rp ${fmt(result.refund)}).`),
       };
     }
 
@@ -623,7 +812,7 @@ export const reducer = (state, action) => {
         hotels: { ...state.hotels, ...result.hotelsPatch },
         housesLeft: result.housesLeft,
         hotelsLeft: result.hotelsLeft,
-        log: addLog(state.log, `${player.name} menjual hotel di ${square?.name} (+$${fmt(result.refund)}).`),
+        log: addLog(state.log, `${player.name} menjual hotel di ${square?.name} (+Rp ${fmt(result.refund)}).`),
       };
     }
 
@@ -671,7 +860,7 @@ export const reducer = (state, action) => {
       return {
         ...state,
         auction: { ...a, highestBid: amount, highestBidderId: a.currentBidderId, currentBidderId: next },
-        log: addLog(state.log, `${bidder.name} menawar $${fmt(amount)}.`),
+        log: addLog(state.log, `${bidder.name} menawar Rp ${fmt(amount)}.`),
       };
     }
 
@@ -735,8 +924,8 @@ export const reducer = (state, action) => {
         pendingDebt: null, waitingFor: null, canRoll: false,
         log: addLog(state.log,
           creditor
-            ? `${player.name} melunasi $${fmt(amount)} ke ${creditor.name}.`
-            : `${player.name} melunasi pajak $${fmt(amount)}.`),
+            ? `${player.name} melunasi Rp ${fmt(amount)} ke ${creditor.name}.`
+            : `${player.name} melunasi pajak Rp ${fmt(amount)}.`),
       };
       if (state.pendingPayments) {
         return continueCardPayments(
@@ -846,13 +1035,27 @@ export const reducer = (state, action) => {
       const rolledDouble = lastRoll?.isDouble ?? false;
       const currentPlayer = players[currentPlayerIndex];
       const wentToJail = currentPlayer.inJail;
-
-      const nextIndex = getNextTurn(currentPlayerIndex, players, rolledDouble, wentToJail);
+      const bonusTurns = currentPlayer.powerUpEffects?.bonusTurns || 0;
+      const hasBonusTurn = bonusTurns > 0;
+      const nextIndex = hasBonusTurn
+        ? currentPlayerIndex
+        : getNextTurn(currentPlayerIndex, players, rolledDouble, wentToJail);
+      const nextPlayers = refreshStats(players, owners).map((player, index) =>
+        index === currentPlayerIndex && hasBonusTurn
+          ? {
+            ...player,
+            powerUpEffects: {
+              ...(player.powerUpEffects || {}),
+              bonusTurns: bonusTurns - 1,
+            },
+          }
+          : player
+      );
 
       return {
         ...state,
-        players: refreshStats(players, owners),
-        turnCount: (state.turnCount || 0) + 1,
+        players: nextPlayers,
+        turnCount: (state.turnCount || 0) + (hasBonusTurn ? 0 : 1),
         currentPlayerIndex: nextIndex,
         waitingFor: null,
         canRoll: true,
@@ -868,12 +1071,20 @@ export const reducer = (state, action) => {
       // di pemanggil). Bersihkan flag transien agar UI tidak nyangkut.
       return {
         ...action.snapshot,
+        settings: action.snapshot.settings || {
+          map: 'nusantara',
+          startMoney: RULES.STARTING_MONEY,
+          speed: 'normal',
+          turnSeconds: null,
+        },
+        turnStartedAt: action.snapshot.turnStartedAt ?? null,
         landResult: null,
         activeCard: null,
         auction: null,
         pendingDebt: null,
         pendingPayments: null,
         pendingTrade: null,
+        pendingReroll: null,
         waitingFor: null,
         canRoll: true,
         turnEnded: false,
@@ -891,6 +1102,23 @@ export const reducer = (state, action) => {
     default:
       return state;
   }
+};
+
+export const reducer = (state, action) => {
+  const nextState = reduceGame(state, action);
+  if (nextState === state || nextState.phase !== 'playing') return nextState;
+  if (action.type === ACTIONS.START_GAME) {
+    return { ...nextState, turnStartedAt: Date.now() };
+  }
+  if (
+    state.phase === 'playing' &&
+    action.type !== ACTIONS.SYNC_STATE &&
+    action.type !== ACTIONS.LOAD_GAME &&
+    (nextState.currentPlayerIndex !== state.currentPlayerIndex || action.type === ACTIONS.END_TURN)
+  ) {
+    return { ...nextState, turnStartedAt: Date.now() };
+  }
+  return nextState;
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -916,9 +1144,16 @@ const resolveWaitingFor = (landResult) => {
 export const INITIAL_GAME_STATE = {
     phase: 'setup',
     players: [],
+    settings: {
+      map: 'nusantara',
+      startMoney: RULES.STARTING_MONEY,
+      speed: 'normal',
+      turnSeconds: null,
+    },
     currentPlayerIndex: 0,
     turnCount: 0,
     startedAt: null,
+    turnStartedAt: null,
     turnEnded: false,
     owners: {},
     houses: {},
@@ -935,6 +1170,7 @@ export const INITIAL_GAME_STATE = {
     auction: null,
     pendingDebt: null,
     pendingPayments: null,
+    pendingReroll: null,
     waitingFor: null,
     canRoll: true,
     pendingTrade: null,

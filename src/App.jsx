@@ -1,9 +1,9 @@
 // ============================================================
 // App.jsx — Root aplikasi.
-// Fase: setup → playing → ended. Menyambungkan useGameState,
-// useAI, lapisan modal, plus fitur Prioritas 3:
+// Fase: setup → playing → ended. Menyambungkan menu, reducer,
+// multiplayer, AI, lapisan modal, dan auto-save:
 //   • Auto-save ke localStorage tiap state berubah (saat playing)
-//   • Tombol "Lanjutkan" di SetupScreen untuk memuat save
+//   • Tombol "Lanjutkan" untuk memuat save
 //   • Efek suara via useSound (dipicu dari perubahan state)
 // ============================================================
 
@@ -12,9 +12,9 @@ import { useGameState } from './hooks/useGameState';
 import { useAI } from './hooks/useAI';
 import { useMultiplayer } from './hooks/useMultiplayer';
 import { useSound } from './hooks/useSound';
-import { saveGame, loadGame as loadSaved, peekSave, clearSave } from './utils/saveGame';
+import { saveGame, loadGame as loadSaved, clearSave } from './utils/saveGame';
 import ControlPanel from './components/ui/ControlPanel';
-import SetupScreen from './components/screens/SetupScreen';
+import GameMenuFrame from './components/screens/GameMenuFrame';
 import EndScreen from './components/screens/EndScreen';
 import BuyModal from './components/modals/BuyModal';
 import CardModal from './components/modals/CardModal';
@@ -34,16 +34,86 @@ export default function App() {
 }
 
 function GameRoot({ onRestart }) {
-  const [difficulty, setDifficulty] = useState('medium');
+  const [difficulty] = useState('medium');
   const [tradeOpen, setTradeOpen] = useState(false);
+  const [timerNow, setTimerNow] = useState(Date.now);
+  const [boardZoom, setBoardZoom] = useState(1.1);
+  const [stageMetrics, setStageMetrics] = useState({ scale: 1, height: 576 });
+  const stageViewportRef = useRef(null);
   const game = useGameState();
   const multiplayer = useMultiplayer(game);
   const gameView = multiplayer.room
     ? { ...game, ...multiplayer.actionHandlers }
     : game;
   const sound = useSound();
+  const turnDeadline = game.turnStartedAt && game.settings?.turnSeconds
+    ? game.turnStartedAt + game.settings.turnSeconds * 1000
+    : null;
+  const turnExpired = Boolean(
+    multiplayer.room &&
+    game.phase === 'playing' &&
+    turnDeadline &&
+    timerNow >= turnDeadline
+  );
+  const forceTimeoutAI = turnExpired && multiplayer.isHost && !game.currentPlayer?.isAI;
+  const aiGame = forceTimeoutAI
+    ? { ...game, currentPlayer: { ...game.currentPlayer, isAI: true } }
+    : game;
 
-  useAI(game, game, difficulty, !multiplayer.room);
+  useEffect(() => {
+    const viewport = stageViewportRef.current;
+    if (!viewport) return undefined;
+
+    const updateScale = () => {
+      const { width, height } = viewport.getBoundingClientRect();
+      if (!width || !height) return;
+
+      const landscape = width >= height;
+      const scale = landscape
+        ? Math.min(width / 1024, height / 460)
+        : Math.min(width / 1024, height / 576);
+      const stageHeight = landscape ? height / scale : 576;
+      setStageMetrics((current) =>
+        Math.abs(current.scale - scale) > 0.001 ||
+        Math.abs(current.height - stageHeight) > 0.5
+          ? { scale, height: stageHeight }
+          : current
+      );
+    };
+
+    const observer = new ResizeObserver(updateScale);
+    observer.observe(viewport);
+    window.visualViewport?.addEventListener('resize', updateScale);
+    window.addEventListener('orientationchange', updateScale);
+    updateScale();
+    return () => {
+      observer.disconnect();
+      window.visualViewport?.removeEventListener('resize', updateScale);
+      window.removeEventListener('orientationchange', updateScale);
+    };
+  }, [game.phase]);
+
+  useEffect(() => {
+    if (
+      !multiplayer.room ||
+      game.phase !== 'playing' ||
+      !turnDeadline ||
+      turnExpired
+    ) return undefined;
+    const updateTime = () => setTimerNow(Date.now());
+    updateTime();
+    const timer = window.setInterval(updateTime, 1000);
+    return () => window.clearInterval(timer);
+  }, [game.phase, multiplayer.room?.id, turnDeadline, turnExpired]);
+
+  useAI(
+    aiGame,
+    gameView,
+    difficulty,
+    !multiplayer.room || multiplayer.isHost,
+    game.settings?.speed,
+    forceTimeoutAI,
+  );
 
   // ── AUTO-SAVE: simpan tiap state berubah saat bermain ──────────
   useEffect(() => {
@@ -90,12 +160,13 @@ function GameRoot({ onRestart }) {
   // ── SETUP ──────────────────────────────────────────────────────
   if (game.phase === 'setup') {
     return (
-      <SetupScreen
-        difficulty={difficulty}
-        onChangeDifficulty={setDifficulty}
-        onStart={(setups) => { clearSave(); game.startGame(setups); }}
+      <GameMenuFrame
         multiplayer={multiplayer}
-        savedInfo={peekSave()}
+        sound={sound}
+        onStartOffline={(setups, settings) => {
+          clearSave();
+          game.startGame(setups, settings);
+        }}
         onContinue={() => {
           const snap = loadSaved();
           if (snap) game.loadGame(snap);
@@ -111,43 +182,95 @@ function GameRoot({ onRestart }) {
 
   // ── PLAYING ─────────────────────────────────────────────────────
   return (
-    <div className="app-layout">
-      {multiplayer.room && (
-        <div className="online-hud">
-          <span>Room <strong>{multiplayer.room.code}</strong></span>
-          <span>{multiplayer.localPlayer?.name}</span>
-          <span className="online-save-status">Tersimpan otomatis</span>
-          <button
-            className="online-hud-leave"
-            onClick={restartGame}
-          >
-            Keluar
-          </button>
-          {multiplayer.error && <span className="online-hud-error" role="alert">{multiplayer.error}</span>}
+    <div className="game-viewport" ref={stageViewportRef}>
+      <div
+        className={`game-stage${game.players.length > 3 ? ' game-stage--many-players' : ''}`}
+        style={{
+          '--stage-scale': stageMetrics.scale,
+          '--stage-height': `${stageMetrics.height}px`,
+        }}
+      >
+        <div className="game-stage-brand" aria-label="Millionaire Indonesia">
+          <strong>MILLIONAIRE</strong>
+          <span>INDONESIA</span>
         </div>
-      )}
-      <div className="app-board-area">
-        <Board gameState={gameView} />
+        <div className="game-stage-round" aria-hidden="true">
+          <small>BABAK</small>
+          <strong>{Math.floor((game.turnCount || 0) / Math.max(game.players.length, 1)) + 1}</strong>
+        </div>
+        <div className="board-zoom-controls" aria-label="Kontrol zoom peta">
+          <button
+            onClick={() => setBoardZoom((zoom) => Math.min(2.4, Number((zoom + 0.15).toFixed(2))))}
+            aria-label="Perbesar peta"
+            title="Perbesar"
+          >
+            +
+          </button>
+          <output>{Math.round(boardZoom * 100)}%</output>
+          <button
+            onClick={() => setBoardZoom((zoom) => Math.max(0.75, Number((zoom - 0.15).toFixed(2))))}
+            aria-label="Perkecil peta"
+            title="Perkecil"
+          >
+            −
+          </button>
+          <button
+            className="board-zoom-reset"
+            onClick={() => setBoardZoom(1.1)}
+            aria-label="Atur ulang zoom peta"
+            title="Atur ulang zoom"
+          >
+            ↺
+          </button>
+        </div>
+        <div className="app-layout">
+          {multiplayer.room && (
+            <div className="online-hud">
+              <span>Room <strong>{multiplayer.room.code}</strong></span>
+              <span>{multiplayer.localPlayer?.name}</span>
+              <span className="online-save-status">
+                {turnExpired && !game.currentPlayer?.isAI
+                  ? 'Waktu habis · AI mengambil alih'
+                  : turnDeadline
+                    ? `Sisa giliran: ${Math.max(0, Math.ceil((turnDeadline - timerNow) / 1000))} dtk`
+                    : 'Tersimpan otomatis'}
+              </span>
+              <button
+                className="online-hud-leave"
+                onClick={restartGame}
+              >
+                Keluar
+              </button>
+              {multiplayer.error && <span className="online-hud-error" role="alert">{multiplayer.error}</span>}
+            </div>
+          )}
+          <div className="app-board-area">
+            <Board gameState={gameView} zoom={boardZoom} onZoomChange={setBoardZoom} />
+          </div>
+
+          <ControlPanel
+            game={gameView}
+            difficulty={difficulty}
+            onQuit={restartGame}
+            onOpenTrade={() => setTradeOpen(true)}
+            sound={sound}
+          />
+
+          <BuyModal game={gameView} />
+          <CardModal game={gameView} />
+          <JailModal game={gameView} />
+          <AuctionModal game={gameView} difficulty={difficulty} />
+          <TradeModal
+            game={gameView}
+            difficulty={difficulty}
+            open={tradeOpen}
+            onClose={() => setTradeOpen(false)}
+          />
+        </div>
       </div>
-
-      <ControlPanel
-        game={gameView}
-        difficulty={difficulty}
-        onQuit={restartGame}
-        onOpenTrade={() => setTradeOpen(true)}
-        sound={sound}
-      />
-
-      <BuyModal game={gameView} />
-      <CardModal game={gameView} />
-      <JailModal game={gameView} />
-      <AuctionModal game={gameView} difficulty={difficulty} />
-      <TradeModal
-        game={gameView}
-        difficulty={difficulty}
-        open={tradeOpen}
-        onClose={() => setTradeOpen(false)}
-      />
+      <div className="game-stage-rotate">
+        <div>📱↻<br />Putar perangkat ke mode landscape</div>
+      </div>
     </div>
   );
 }

@@ -74,7 +74,7 @@ const PlayerPiece = ({ player, resolveCenter, offset = { dx: 0, dy: 0 }, color }
 
   const tooltip = [
     `${player.name} (${player.piece})`,
-    `Uang: $${fmt(player.money)}`,
+    `Uang: Rp ${fmt(player.money)}`,
     player.inJail ? '🔒 Di penjara' : null,
   ].filter(Boolean).join(' — ');
 

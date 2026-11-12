@@ -42,6 +42,8 @@ export const saveGame = (state) => {
         currentPlayerIndex: state.currentPlayerIndex,
         turnCount: state.turnCount ?? 0,
         startedAt: state.startedAt ?? Date.now(),
+        turnStartedAt: state.turnStartedAt ?? null,
+        settings: state.settings,
         phase: 'playing',
         owners: state.owners,
         houses: state.houses,

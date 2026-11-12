@@ -13,8 +13,8 @@ const { PIECE_ICONS, DEFAULT_NAMES, MIN_PLAYERS, MAX_PLAYERS } = PLAYER_CONFIG;
 
 const DIFF_LABEL = { easy: 'Mudah', medium: 'Sedang', hard: 'Sulit' };
 
-export default function SetupScreen({ difficulty, onChangeDifficulty, onStart, savedInfo, onContinue, multiplayer }) {
-  const [mode, setMode] = useState('local');
+export default function SetupScreen({ initialMode = 'local', onBack, difficulty, onChangeDifficulty, onStart, savedInfo, onContinue, multiplayer }) {
+  const [mode, setMode] = useState(initialMode);
   const [count, setCount] = useState(2);
   const [players, setPlayers] = useState(() =>
     DEFAULT_NAMES.map((name, i) => ({
@@ -46,8 +46,13 @@ export default function SetupScreen({ difficulty, onChangeDifficulty, onStart, s
   );
 
   return (
-    <div className="setup-screen">
-      <div className="setup-card">
+    <div className={`setup-screen${mode === 'online' ? ' setup-screen--online' : ''}`}>
+      <div className={`setup-card${mode === 'online' ? ' setup-card--online' : ''}`}>
+        {mode === 'local' && onBack && (
+          <button className="btn btn-ghost setup-back" type="button" onClick={onBack}>
+            ← Menu utama
+          </button>
+        )}
         <h1 className="brand-logo">M·O·N·O·P·O·L·Y</h1>
         <p className="brand-sub">All New International</p>
 
@@ -73,6 +78,7 @@ export default function SetupScreen({ difficulty, onChangeDifficulty, onStart, s
             multiplayer={multiplayer}
             defaultName={players[0].name}
             defaultPiece={players[0].piece}
+            onClose={() => setMode('local')}
           />
         ) : (
           <>

@@ -1,0 +1,6 @@
+/* page.css — gaya halaman standalone (opsional).
+   Kalau menu dipasang di halaman game yang sudah ada, TIDAK perlu file ini. */
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html,body{height:100%;margin:0;overflow:hidden;background:#e9a95a;font-family:system-ui,sans-serif;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+#c{background:radial-gradient(ellipse at 50% 40%,rgba(255,215,155,.25),rgba(83,43,12,.2)),url('../assets/board.webp') center/ min(92vw,1120px) auto no-repeat,#e9a95a}

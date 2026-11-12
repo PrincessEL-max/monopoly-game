@@ -92,9 +92,9 @@ const calcAirportRent = (square, gameState) => {
 /**
  * Sewa utilitas = multiplier × total dadu pemain yang mendarat
  *
- * square.rentMultiplier = [4, 10]
- *   index 0 = punya 1 utilitas  → 4× dadu
- *   index 1 = punya 2 utilitas  → 10× dadu
+ * square.rentMultiplier = [400, 1000]
+ *   index 0 = punya 1 utilitas  → 400× dadu
+ *   index 1 = punya 2 utilitas  → 1000× dadu
  */
 const calcUtilityRent = (square, gameState, lander) => {
   const { owners, lastRoll } = gameState;
@@ -104,7 +104,7 @@ const calcUtilityRent = (square, gameState, lander) => {
   const utilitySquares = SQUARES.filter((s) => s.type === 'utility');
   const ownedCount = utilitySquares.filter((s) => owners[s.id] === ownerId).length;
 
-  const multiplier = square.rentMultiplier[Math.min(ownedCount - 1, 1)] || 4;
+  const multiplier = square.rentMultiplier[Math.min(ownedCount - 1, 1)] || 400;
   return diceTotal * multiplier;
 };
 
@@ -142,8 +142,8 @@ export const getRentTable = (square, gameState) => {
 
   if (square.type === 'utility') {
     return [
-      { label: '1 Utilitas dimiliki (×4 dadu)',  amount: '4× dadu' },
-      { label: '2 Utilitas dimiliki (×10 dadu)', amount: '10× dadu' },
+      { label: '1 Utilitas dimiliki (×400 dadu)',  amount: '400× dadu' },
+      { label: '2 Utilitas dimiliki (×1000 dadu)', amount: '1000× dadu' },
     ];
   }
 

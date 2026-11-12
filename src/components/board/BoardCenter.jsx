@@ -26,6 +26,10 @@ const LOGO_LETTERS = ['M', 'O', 'N', 'O', 'P', 'O', 'L', 'Y'];
 
 export default function BoardCenter() {
   const globeSrc = LANDMARK_IMAGES.globe_center;
+  const cards = [
+    { src: LANDMARK_IMAGES.card_chance_back, label: 'Kartu Kesempatan' },
+    { src: LANDMARK_IMAGES.card_chest_back, label: 'Kartu Dana Umum' },
+  ];
 
   return (
     <div className="bc-root">
@@ -63,6 +67,15 @@ export default function BoardCenter() {
       <div className="bc-logo-wrap">
         <Logo />
         <p className="bc-subtitle">All New International</p>
+      </div>
+
+      <div className="bc-card-decks" aria-label="Tumpukan kartu">
+        {cards.map(({ src, label }) => (
+          <div className="bc-card-stack" key={label}>
+            <img src={src} alt="" draggable={false} />
+            <span>{label}</span>
+          </div>
+        ))}
       </div>
     </div>
   );

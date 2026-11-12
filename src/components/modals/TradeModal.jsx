@@ -147,7 +147,7 @@ function DealList({ names, money }) {
       {money > 0 && (
         <li className="rent-row" style={{ borderColor: 'rgba(255,255,255,.1)' }}>
           <span className="rent-label" style={{ color: 'var(--gold-2)' }}>
-            💰 ${fmt(money)}
+            💰 Rp {fmt(money)}
           </span>
         </li>
       )}
@@ -244,7 +244,7 @@ function TradeCompose({ game, onClose, onPropose }) {
                     selected={offeredProps}
                     onToggle={(id) => toggle(offeredProps, setOfferedProps, id)}
                   />
-                  <label className="trade-money-label">+ Uang ($)</label>
+                  <label className="trade-money-label">+ Uang (Rp)</label>
                   <input
                     className="trade-money-input"
                     type="number"
@@ -266,7 +266,7 @@ function TradeCompose({ game, onClose, onPropose }) {
                     selected={requestedProps}
                     onToggle={(id) => toggle(requestedProps, setRequestedProps, id)}
                   />
-                  <label className="trade-money-label">+ Uang ($)</label>
+                  <label className="trade-money-label">+ Uang (Rp)</label>
                   <input
                     className="trade-money-input"
                     type="number"
@@ -283,9 +283,9 @@ function TradeCompose({ game, onClose, onPropose }) {
 
               <div className="trade-summary">
                 Kamu memberi <b>{offeredProps.length}</b> properti
-                {offeredMoney ? <> + <b>${fmt(offeredMoney)}</b></> : null},
+                {offeredMoney ? <> + <b>Rp {fmt(offeredMoney)}</b></> : null},
                 menerima <b>{requestedProps.length}</b> properti
-                {requestedMoney ? <> + <b>${fmt(requestedMoney)}</b></> : null}.
+                {requestedMoney ? <> + <b>Rp {fmt(requestedMoney)}</b></> : null}.
               </div>
             </>
           )}

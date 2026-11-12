@@ -1092,6 +1092,33 @@
 .sq__buildings--left   { right: 15px; top: 0; bottom: 0; flex-direction: column; }
 .sq__buildings--right  { left: 15px; top: 0; bottom: 0; flex-direction: column; }
 
+.bld-model--house {
+  width: 12px;
+  height: 13px;
+  flex: 0 0 12px;
+}
+.bld-model--hotel {
+  width: 18px;
+  height: 15px;
+  flex: 0 0 18px;
+}
+.bld-model[data-model-ready="true"] {
+  visibility: hidden;
+  background: transparent;
+  border: 0;
+  filter: none;
+}
+.bld-model[data-model-ready="true"]::before { display: none; }
+.building-model-renderer {
+  position: fixed;
+  inset: 0;
+  z-index: 15;
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+}
+
 /* ── Titik pemilik ───────────────────────────────────────────── */
 .sq__owner-dot {
   position: absolute;

@@ -2,6 +2,7 @@ import React from 'react';
 import { KOMPLEX_COLORS } from '../../constants/squares';
 import { LANDMARK_IMAGES } from '../../constants/images';
 import { COLORS } from '../../constants/config';
+import BuildingModel from './BuildingModel';
 
 const TYPE_ICON = {
   airport:         '✈️',
@@ -65,7 +66,7 @@ export default function Square({
   const stripColor = isProperty ? KOMPLEX_COLORS[komplex] : null;
   const bg = TYPE_BG[type] ?? COLORS.SQUARE_BG;
   const imgSrc = image ? LANDMARK_IMAGES[image] : null;
-  const priceLabel = price ? `$${fmtMoney(price)}` : (amount ? `-$${fmtMoney(amount)}` : '');
+  const priceLabel = price ? `Rp ${fmtMoney(price)}` : (amount ? `-Rp ${fmtMoney(amount)}` : '');
   const flag = subtitle ? COUNTRY_FLAG[subtitle] : null;
 
   return (
@@ -142,9 +143,9 @@ export default function Square({
       {(houseCount > 0 || hasHotel) && (
         <div className={`sq__buildings sq__buildings--${side}`} aria-hidden="true">
           {hasHotel
-            ? <span className="bld bld--hotel" title="Hotel" />
+            ? <BuildingModel kind="hotel" />
             : Array.from({ length: houseCount }).map((_, i) => (
-                <span key={i} className="bld bld--house" title="Rumah" />
+                <BuildingModel key={i} kind="house" />
               ))
           }
         </div>

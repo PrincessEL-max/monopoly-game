@@ -186,7 +186,69 @@
 }
 .deed-foot-info b { color: #1a1a2e; }
 
+.property-card-overlay {
+  z-index: 1100;
+  padding: 18px;
+  background: rgba(20, 10, 0, .8);
+}
+.property-offer {
+  display: flex;
+  max-width: 90vw;
+  max-height: 96%;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  animation: modal-rise .25s ease both;
+}
+.property-offer-caption {
+  display: grid;
+  gap: 2px;
+  color: #ffe27a;
+  text-align: center;
+  text-shadow: 0 2px 0 #000;
+}
+.property-offer-caption strong { font-size: 19px; line-height: 1.1; }
+.property-offer-caption span { color: #fff; font-size: 12px; }
+.property-card-art {
+  display: block;
+  width: auto;
+  height: 352px;
+  max-width: min(240px, 64vw);
+  object-fit: contain;
+  border-radius: 12px;
+  box-shadow: 0 14px 30px rgba(0,0,0,.55);
+}
+.property-offer-summary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 16px;
+  color: #fff;
+  font-size: 12px;
+  text-shadow: 0 1px 2px #000;
+}
+.property-offer-summary strong { color: #ffe27a; }
+.property-discount { padding: 6px 12px; font-size: 12px; }
+.property-offer-actions { display: flex; justify-content: center; gap: 12px; }
+.property-offer-actions .btn { min-width: 112px; padding: 7px 16px; font-size: 14px; }
+.property-offer-actions .btn-ghost {
+  border: 2px solid #ffd9a5;
+  background: linear-gradient(#874a2c, #5c2c1a);
+  color: #fff;
+  box-shadow: 0 3px 0 #32160e;
+}
+.property-offer-actions .btn-success {
+  border: 2px solid #d7ffe2;
+  background: linear-gradient(#6ff08e, #1f9e4c);
+  color: #fff;
+  box-shadow: 0 3px 0 #0b5a2a;
+}
+
 .buy-price {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
   text-align: center;
   font-size: 14px;
   margin: 14px 0 2px;
@@ -240,6 +302,15 @@
     var(--deck, #b8860b);
   border: 3px solid rgba(255, 255, 255, 0.85);
   color: #fff;
+}
+.flip-back img,
+.flip-front img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 10px;
 }
 .flip-back-emblem {
   font-size: 64px;

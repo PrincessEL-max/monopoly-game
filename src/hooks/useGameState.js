@@ -9,7 +9,7 @@ export const useGameState = () => {
   const [state, dispatch] = useReducer(reducer, INITIAL_GAME_STATE);
 
   // ── ACTION DISPATCHERS ──────────────────────────────────────
-  const startGame    = useCallback((playerSetups) => dispatch({ type: ACTIONS.START_GAME, playerSetups }), []);
+  const startGame    = useCallback((playerSetups, settings) => dispatch({ type: ACTIONS.START_GAME, playerSetups, settings }), []);
   const loadGame     = useCallback((snapshot) => dispatch({ type: ACTIONS.LOAD_GAME, snapshot }), []);
   const syncState    = useCallback((snapshot) => dispatch({ type: ACTIONS.SYNC_STATE, snapshot }), []);
   const dispatchAction = useCallback((action) => dispatch(action), []);
@@ -22,6 +22,9 @@ export const useGameState = () => {
   const applyCardAct = useCallback(() => dispatch({ type: ACTIONS.APPLY_CARD }), []);
   const payJailFineAct     = useCallback(() => dispatch({ type: ACTIONS.PAY_JAIL_FINE }), []);
   const useJailCardAct     = useCallback((source) => dispatch({ type: ACTIONS.USE_JAIL_FREE_CARD, source }), []);
+  const usePowerUpAct      = useCallback((payload) => dispatch({ type: ACTIONS.USE_POWER_UP, ...payload }), []);
+  const acceptRerollAct    = useCallback(() => dispatch({ type: ACTIONS.ACCEPT_REROLL }), []);
+  const keepRerollAct      = useCallback(() => dispatch({ type: ACTIONS.KEEP_REROLL }), []);
   const buyHouseAct  = useCallback((squareId) => dispatch({ type: ACTIONS.BUY_HOUSE, squareId }), []);
   const buyHotelAct  = useCallback((squareId) => dispatch({ type: ACTIONS.BUY_HOTEL, squareId }), []);
   const sellHouseAct = useCallback((squareId) => dispatch({ type: ACTIONS.SELL_HOUSE, squareId }), []);
@@ -64,6 +67,9 @@ export const useGameState = () => {
     applyCard: applyCardAct,
     payJailFine: payJailFineAct,
     useJailFreeCard: useJailCardAct,
+    usePowerUp: usePowerUpAct,
+    acceptReroll: acceptRerollAct,
+    keepReroll: keepRerollAct,
     buyHouse: buyHouseAct,
     buyHotel: buyHotelAct,
     sellHouse: sellHouseAct,

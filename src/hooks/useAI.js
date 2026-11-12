@@ -49,7 +49,7 @@ const findSellable = (player, gs) => {
  * @param {Function} actions   — action dispatchers
  * @param {string} difficulty  — 'easy' | 'medium' | 'hard'
  */
-export const useAI = (gameState, actions, difficulty = 'medium', enabled = true) => {
+export const useAI = (gameState, actions, difficulty = 'medium', enabled = true, speed = 'normal', forceCurrentPlayer = false) => {
   const timerRef = useRef(null);
 
   const {
@@ -71,13 +71,14 @@ export const useAI = (gameState, actions, difficulty = 'medium', enabled = true)
   useEffect(() => {
     if (!enabled) return;
     if (phase !== 'playing') return;
-    if (!currentPlayer?.isAI) return;
+    if (!currentPlayer?.isAI && !forceCurrentPlayer) return;
     if (auction) return; // lelang ditangani AuctionModal
 
     const delay = (fn, ms) => {
       clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(fn, ms);
+      timerRef.current = setTimeout(fn, Math.max(100, ms * (speed === 'cepat' ? 0.5 : 1)));
     };
+    const turnDifficulty = currentPlayer.difficulty || difficulty;
 
     // Giliran sudah digeser reducer sendiri (go_to_jail, triple double, dll)
     // Tidak perlu aksi tambahan — clear timer pending dan return.
@@ -89,7 +90,7 @@ export const useAI = (gameState, actions, difficulty = 'medium', enabled = true)
     // ── RESPONS TRADE MASUK ──────────────────────────────────
     if (waitingFor === 'TRADE_RESPONSE' && pendingTrade?.to === currentPlayer.id) {
       delay(() => {
-        const accept = aiEvaluateTrade(currentPlayer, pendingTrade, gameState, difficulty);
+        const accept = aiEvaluateTrade(currentPlayer, pendingTrade, gameState, turnDifficulty);
         accept ? acceptTrade() : rejectTrade();
       }, AI_DELAY.THINK);
       return;
@@ -140,7 +141,7 @@ export const useAI = (gameState, actions, difficulty = 'medium', enabled = true)
     // ── BELI ATAU TIDAK (decline → lelang) ───────────────────
     if (waitingFor === 'BUY_DECISION' && landResult?.square) {
       delay(() => {
-        const shouldBuy = aiDecideBuy(currentPlayer, landResult.square, gameState, difficulty);
+        const shouldBuy = aiDecideBuy(currentPlayer, landResult.square, gameState, turnDifficulty);
         shouldBuy ? buyProperty(landResult.square.id) : declineBuy();
       }, AI_DELAY.THINK);
       return;
@@ -163,7 +164,7 @@ export const useAI = (gameState, actions, difficulty = 'medium', enabled = true)
       delay(() => {
         // Keluar penjara dulu
         if (currentPlayer.inJail) {
-          const shouldPay = aiDecideJail(currentPlayer, gameState, difficulty);
+          const shouldPay = aiDecideJail(currentPlayer, gameState, turnDifficulty);
           if (shouldPay) {
             if (currentPlayer.jailFreeCards.chance > 0) {
               useJailFreeCard('chance');
@@ -183,7 +184,7 @@ export const useAI = (gameState, actions, difficulty = 'medium', enabled = true)
         }
 
         // Bangun rumah/hotel sebelum roll jika bisa
-        const builds = aiDecideBuild(currentPlayer, gameState, difficulty);
+        const builds = aiDecideBuild(currentPlayer, gameState, turnDifficulty);
         if (builds.length > 0) {
           const first = builds[0];
           if (first.type === 'house') {
@@ -213,6 +214,6 @@ export const useAI = (gameState, actions, difficulty = 'medium', enabled = true)
   }, [
     enabled,
     phase, currentPlayer, waitingFor, canRoll, turnEnded,
-    landResult, activeCard, pendingTrade, pendingDebt, auction, difficulty,
+    landResult, activeCard, pendingTrade, pendingDebt, auction, difficulty, speed, forceCurrentPlayer,
   ]);
 };

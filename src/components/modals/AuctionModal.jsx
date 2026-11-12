@@ -77,13 +77,13 @@ export default function AuctionModal({ game, difficulty = 'medium' }) {
             </div>
             {sq?.subtitle && <div className="deed-sub">{sq.subtitle}</div>}
             <div className="deed-foot-info">
-              <span>Harga normal: <b>${fmt(sq?.price)}</b></span>
+              <span>Harga normal: <b>Rp {fmt(sq?.price)}</b></span>
             </div>
           </div>
 
           <div className="auc-high">
             {highBidder ? (
-              <>Tawaran tertinggi: <strong>${fmt(auction.highestBid)}</strong> oleh {highBidder.name}</>
+              <>Tawaran tertinggi: <strong>Rp {fmt(auction.highestBid)}</strong> oleh {highBidder.name}</>
             ) : (
               <>Belum ada tawaran.</>
             )}
@@ -126,7 +126,7 @@ export default function AuctionModal({ game, difficulty = 'medium' }) {
                 onChange={(e) => setBid(Math.floor(Number(e.target.value) || 0))}
               />
               <span className="auc-bid-hint">
-                min ${fmt(minBid)} · uangmu ${fmt(bidder.money)}
+                min Rp {fmt(minBid)} · uangmu Rp {fmt(bidder.money)}
               </span>
             </div>
           )}
@@ -140,7 +140,7 @@ export default function AuctionModal({ game, difficulty = 'medium' }) {
               disabled={!validBid}
               onClick={() => auctionBid(bid)}
             >
-              Tawar ${fmt(bid || 0)}
+              Tawar Rp {fmt(bid || 0)}
             </button>
           </div>
         )}

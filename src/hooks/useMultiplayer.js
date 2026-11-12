@@ -3,6 +3,8 @@ import { ACTIONS, INITIAL_GAME_STATE } from '../logic/gameReducer.js';
 import { supabase } from '../lib/supabase.js';
 
 const SESSION_KEY = 'monopoly-online-session';
+const PROFILE_KEY = 'monopoly-online-profile';
+const MATCH_KEY = 'monopoly-matchmaking-session';
 const CHANNEL_PREFIX = 'monopoly-room:';
 const REFRESH_DEBOUNCE_MS = 250;
 const POLL_INTERVAL_MS = 15_000;
@@ -17,6 +19,9 @@ const GAME_ACTIONS = {
   applyCard: [ACTIONS.APPLY_CARD],
   payJailFine: [ACTIONS.PAY_JAIL_FINE],
   useJailFreeCard: [ACTIONS.USE_JAIL_FREE_CARD, 'source'],
+  usePowerUp: [ACTIONS.USE_POWER_UP, 'payload'],
+  acceptReroll: [ACTIONS.ACCEPT_REROLL],
+  keepReroll: [ACTIONS.KEEP_REROLL],
   buyHouse: [ACTIONS.BUY_HOUSE, 'squareId'],
   buyHotel: [ACTIONS.BUY_HOTEL, 'squareId'],
   sellHouse: [ACTIONS.SELL_HOUSE, 'squareId'],
@@ -39,14 +44,34 @@ const readSession = () => {
   return raw ? JSON.parse(raw) : null;
 };
 
+const readStoredValue = (key) => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
 export const useMultiplayer = (game) => {
   const [room, setRoom] = useState(null);
   const [playerId, setPlayerId] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [social, setSocial] = useState({
+    friends: [],
+    results: [],
+    invites: [],
+    totalOnline: 0,
+    activePlayers: 0,
+    ping: 0,
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(
     supabase ? '' : 'Atur VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY untuk mengaktifkan multiplayer.',
   );
   const gameRef = useRef(game);
+  const profileSessionRef = useRef(readStoredValue(PROFILE_KEY));
+  const matchSessionRef = useRef(readStoredValue(MATCH_KEY));
   gameRef.current = game;
 
   const request = useCallback(async (operation, payload = {}) => {
@@ -77,6 +102,43 @@ export const useMultiplayer = (game) => {
     setPlayerId(session.playerId);
   }, []);
 
+  const updateProfile = useCallback(async (name = '') => {
+    const session = profileSessionRef.current || {};
+    const startedAt = performance.now();
+    const response = await request('profile', {
+      ...session,
+      name: name || session.name || 'Pemain 1',
+    });
+    const stored = {
+      profileId: response.profile.id,
+      profileToken: response.profileToken,
+      name: response.profile.name,
+    };
+    localStorage.setItem(PROFILE_KEY, JSON.stringify(stored));
+    profileSessionRef.current = stored;
+    setProfile(response.profile);
+    setSocial((current) => ({
+      ...current,
+      ...response.social,
+      results: current.results,
+      ping: Math.round(performance.now() - startedAt),
+    }));
+    return { profile: response.profile, session: stored };
+  }, [request]);
+
+  const ensureProfile = useCallback(async (name = '') => {
+    const current = profileSessionRef.current;
+    if (current?.profileId && current?.profileToken && !name && profile) {
+      return { profile: profile, session: current };
+    }
+    return updateProfile(name);
+  }, [profile, updateProfile]);
+
+  const profileRequest = useCallback(async (operation, payload = {}) => {
+    const { session } = await ensureProfile();
+    return request(operation, { ...session, ...payload });
+  }, [ensureProfile, request]);
+
   const applySnapshot = useCallback((snapshot) => {
     if (snapshot.room) setRoom(snapshot.room);
     if (snapshot.gameState) gameRef.current.syncState(snapshot.gameState);
@@ -89,6 +151,24 @@ export const useMultiplayer = (game) => {
     gameRef.current.syncState(INITIAL_GAME_STATE);
     if (message) setError(message);
   }, []);
+
+  useEffect(() => {
+    if (!supabase) return undefined;
+    let active = true;
+    const refreshProfile = async () => {
+      try {
+        await updateProfile();
+      } catch (reason) {
+        if (active) setError(reason.message);
+      }
+    };
+    refreshProfile();
+    const heartbeat = setInterval(refreshProfile, 30_000);
+    return () => {
+      active = false;
+      clearInterval(heartbeat);
+    };
+  }, [updateProfile]);
 
   const refreshSnapshot = useCallback(async () => {
     const session = readSession();
@@ -213,30 +293,44 @@ export const useMultiplayer = (game) => {
     setBusy(true);
     setError('');
     try {
+      const { profile: currentProfile, session: currentSession } = await ensureProfile(input.name);
       localStorage.removeItem(SESSION_KEY);
-      const response = await request('create', input);
+      const response = await request('create', {
+        ...input,
+        profileId: currentProfile.id,
+        profileToken: currentSession.profileToken,
+      });
       storeSession({ code: response.room.code, playerId: response.playerId, token: response.token });
       applySnapshot(response);
+      return response;
     } catch (reason) {
       setError(reason.message);
+      return null;
     } finally {
       setBusy(false);
     }
-  }, [applySnapshot, request, storeSession]);
+  }, [applySnapshot, ensureProfile, request, storeSession]);
 
   const joinRoom = useCallback(async (input) => {
     setBusy(true);
     setError('');
     try {
-      const response = await request('join', input);
+      const { profile: currentProfile, session: currentSession } = await ensureProfile(input.name);
+      const response = await request('join', {
+        ...input,
+        profileId: currentProfile.id,
+        profileToken: currentSession.profileToken,
+      });
       storeSession({ code: response.room.code, playerId: response.playerId, token: response.token });
       applySnapshot(response);
+      return response;
     } catch (reason) {
       setError(reason.message);
+      return null;
     } finally {
       setBusy(false);
     }
-  }, [applySnapshot, request, storeSession]);
+  }, [applySnapshot, ensureProfile, request, storeSession]);
 
   const startRoom = useCallback(async () => {
     const session = readSession();
@@ -248,12 +342,161 @@ export const useMultiplayer = (game) => {
     setError('');
     try {
       applySnapshot(await request('start', session));
+      return true;
     } catch (reason) {
       setError(reason.message);
+      return false;
     } finally {
       setBusy(false);
     }
   }, [applySnapshot, request]);
+
+  const startMatchmaking = useCallback(async (input) => {
+    setBusy(true);
+    setError('');
+    try {
+      const { session } = await ensureProfile(input.name);
+      const existing = matchSessionRef.current || readStoredValue(MATCH_KEY);
+      if (existing) {
+        const status = await request('matchmaking_status', {
+          ...session,
+          playerId: existing.playerId,
+          token: existing.token,
+        });
+        if (status.status === 'waiting' || status.status === 'matched') {
+          matchSessionRef.current = { ...existing, profileId: session.profileId };
+          return { estimatedSeconds: 30 };
+        }
+      }
+
+      const response = await request('matchmaking_join', {
+        ...session,
+        ...input,
+      });
+      const matchSession = {
+        profileId: session.profileId,
+        profileToken: session.profileToken,
+        playerId: response.playerId,
+        token: response.token,
+      };
+      localStorage.setItem(MATCH_KEY, JSON.stringify(matchSession));
+      matchSessionRef.current = matchSession;
+      return response;
+    } catch (reason) {
+      setError(reason.message);
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  }, [ensureProfile, request]);
+
+  const pollMatchmaking = useCallback(async () => {
+    const matchSession = matchSessionRef.current || readStoredValue(MATCH_KEY);
+    if (!matchSession) return { error: 'Sesi pencarian lawan tidak ditemukan.' };
+    try {
+      const result = await request('matchmaking_status', {
+        profileId: matchSession.profileId,
+        profileToken: matchSession.profileToken,
+        playerId: matchSession.playerId,
+        token: matchSession.token,
+      });
+      if (result.status === 'matched') {
+        storeSession({
+          code: result.room.code,
+          playerId: result.playerId,
+          token: result.token,
+        });
+        applySnapshot(result);
+        localStorage.removeItem(MATCH_KEY);
+        matchSessionRef.current = null;
+      }
+      return result;
+    } catch (reason) {
+      setError(reason.message);
+      return { error: reason.message };
+    }
+  }, [applySnapshot, request, storeSession]);
+
+  const cancelMatchmaking = useCallback(async () => {
+    const matchSession = matchSessionRef.current || readStoredValue(MATCH_KEY);
+    if (!matchSession) return true;
+    try {
+      await request('matchmaking_cancel', {
+        profileId: matchSession.profileId,
+        profileToken: matchSession.profileToken,
+        playerId: matchSession.playerId,
+        token: matchSession.token,
+      });
+      localStorage.removeItem(MATCH_KEY);
+      matchSessionRef.current = null;
+      return true;
+    } catch (reason) {
+      setError(reason.message);
+      return false;
+    }
+  }, [request]);
+
+  const addBot = useCallback(async ({ slot, difficulty = 'Sedang' }) => {
+    const session = readSession();
+    if (!session) {
+      setError('Sesi room tidak ditemukan.');
+      return false;
+    }
+    try {
+      applySnapshot(await request('add_bot', { ...session, slot, difficulty }));
+      return true;
+    } catch (reason) {
+      setError(reason.message);
+      return false;
+    }
+  }, [applySnapshot, request]);
+
+  const removeRoomPlayer = useCallback(async ({ slot }) => {
+    const session = readSession();
+    if (!session) {
+      setError('Sesi room tidak ditemukan.');
+      return false;
+    }
+    try {
+      applySnapshot(await request('remove_player', { ...session, slot }));
+      return true;
+    } catch (reason) {
+      setError(reason.message);
+      return false;
+    }
+  }, [applySnapshot, request]);
+
+  const searchFriends = useCallback(async (query) => {
+    try {
+      const response = await profileRequest('friend_search', { query });
+      setSocial((current) => ({ ...current, results: response.results }));
+      return response.results;
+    } catch (reason) {
+      setError(reason.message);
+      return null;
+    }
+  }, [profileRequest]);
+
+  const addFriend = useCallback(async (friendId) => {
+    try {
+      await profileRequest('friend_add', { friendId });
+      const response = await updateProfile();
+      return response;
+    } catch (reason) {
+      setError(reason.message);
+      return null;
+    }
+  }, [profileRequest, updateProfile]);
+
+  const inviteFriend = useCallback(async (friendId, roomCode = null) => {
+    try {
+      await profileRequest('friend_invite', { friendId, roomCode });
+      return true;
+    } catch (reason) {
+      setError(reason.message);
+      return false;
+    }
+  }, [profileRequest]);
 
   const leaveRoom = useCallback(async () => {
     let session;
@@ -262,14 +505,19 @@ export const useMultiplayer = (game) => {
     } catch (reason) {
       clearRoom();
       setError(`Sesi room tidak dapat dibaca: ${reason.message}`);
-      return;
+      return false;
     }
-    clearRoom();
-    if (!session) return;
+    if (!session) {
+      clearRoom();
+      return true;
+    }
     try {
       await request('leave', session);
+      clearRoom();
+      return true;
     } catch (reason) {
       setError(reason.message);
+      return false;
     }
   }, [clearRoom, request]);
 
@@ -285,7 +533,11 @@ export const useMultiplayer = (game) => {
       setError('Sesi room tidak ditemukan. Silakan masuk kembali.');
       return;
     }
-    const action = payload === undefined ? { type } : { type, [payload.key]: payload.value };
+    const action = payload === undefined
+      ? { type }
+      : payload.key === 'payload'
+        ? { type, ...payload.value }
+        : { type, [payload.key]: payload.value };
     try {
       applySnapshot(await request('action', { ...session, action }));
     } catch (reason) {
@@ -314,11 +566,21 @@ export const useMultiplayer = (game) => {
     room,
     isHost,
     localPlayer,
+    profile,
+    social,
     busy,
     error,
+    startMatchmaking,
+    pollMatchmaking,
+    cancelMatchmaking,
     createRoom,
     joinRoom,
     startRoom,
+    addBot,
+    removeRoomPlayer,
+    searchFriends,
+    addFriend,
+    inviteFriend,
     leaveRoom,
     actionHandlers,
     clearError: () => setError(''),

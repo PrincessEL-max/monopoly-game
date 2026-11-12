@@ -23,6 +23,10 @@ import { PLAYER_COLORS } from '../board/Board';
 import PieceModel from '../board/PieceModel';
 import { RULES } from '../../constants/config';
 import {
+  getPropertyCardImage,
+  MILLIONAIRE_UI_ASSETS,
+} from '../../constants/millionaireAssets';
+import {
   SQUARES, KOMPLEX_COLORS, getKomplexSquares, ownsFullKomplex,
 } from '../../constants/squares';
 
@@ -46,11 +50,20 @@ export default function ControlPanel({ game, difficulty, onQuit, onOpenTrade, so
     lastRoll, log, landResult, waitingFor, canRoll, pendingDebt,
     rollDice, payRent, payTax, endTurn, declareBankruptcy,
     buyHouse, buyHotel, sellHouse, sellHotel, mortgage, unmortgage, settleDebt,
+    usePowerUp, acceptReroll, keepReroll,
   } = game;
 
   const [manageOpen, setManageOpen] = useState(false);
+  const [cardsOpen, setCardsOpen] = useState(false);
+  const [logOpen, setLogOpen] = useState(true);
+  const [diceRolling, setDiceRolling] = useState(false);
   const isAI = !!currentPlayer?.isAI;
   const raising = waitingFor === 'RAISE_FUNDS';
+  const playerRows = players.length <= 3
+    ? [players]
+    : players.length === 4
+      ? [players.slice(0, 2), players.slice(2)]
+      : [players.slice(0, 3), players.slice(3)];
 
   // Tools (kelola / trade) aktif saat giliran manusia & tidak menunggu
   // resolusi lain — KECUALI saat RAISE_FUNDS, di mana kelola wajib dibuka.
@@ -72,6 +85,15 @@ export default function ControlPanel({ game, difficulty, onQuit, onOpenTrade, so
     if (waitingFor && MODAL_HINT[waitingFor]) {
       return <div className="act-hint">{MODAL_HINT[waitingFor]}</div>;
     }
+    if (waitingFor === 'REROLL_DECISION') {
+      return (
+        <div className="act-block">
+          <div className="act-text">Pilih hasil lemparan dadu.</div>
+          <button className="btn btn-gold" onClick={acceptReroll}>Lempar Ulang</button>
+          <button className="btn btn-ghost" onClick={keepReroll}>Gunakan Hasil Ini</button>
+        </div>
+      );
+    }
     // Penjara (manusia) ditangani JailModal
     if (currentPlayer?.inJail && canRoll && !waitingFor) {
       return <div className="act-hint">Pilih opsi penjara di tengah layar.</div>;
@@ -87,11 +109,11 @@ export default function ControlPanel({ game, difficulty, onQuit, onOpenTrade, so
         <div className="act-block act-danger">
           <div className="act-text">
             {pendingDebt.alreadyApplied ? (
-              <>Saldo kamu <strong>${fmt(currentPlayer.money)}</strong> (minus). Jual atau
+              <>Saldo kamu <strong>Rp {fmt(currentPlayer.money)}</strong> (minus). Jual atau
               gadai aset di panel <strong>Kelola Properti</strong> hingga saldo ≥ 0.</>
             ) : (
-              <>Kamu harus membayar <strong>${fmt(target)}</strong> tapi uangmu hanya{' '}
-              <strong>${fmt(currentPlayer.money)}</strong>. Jual/gadai aset di panel{' '}
+              <>Kamu harus membayar <strong>Rp {fmt(target)}</strong> tapi uangmu hanya{' '}
+              <strong>Rp {fmt(currentPlayer.money)}</strong>. Jual/gadai aset di panel{' '}
               <strong>Kelola Properti</strong>.</>
             )}
           </div>
@@ -111,7 +133,7 @@ export default function ControlPanel({ game, difficulty, onQuit, onOpenTrade, so
       return (
         <div className="act-block">
           <div className="act-text">
-            Bayar sewa <strong>${fmt(landResult.rentAmount)}</strong> ke {owner?.name}.
+            Bayar sewa <strong>Rp {fmt(landResult.rentAmount)}</strong> ke {owner?.name}.
           </div>
           <button className="btn btn-danger" onClick={payRent}>Bayar Sewa</button>
         </div>
@@ -123,33 +145,46 @@ export default function ControlPanel({ game, difficulty, onQuit, onOpenTrade, so
       return (
         <div className="act-block">
           <div className="act-text">
-            Bayar pajak <strong>${fmt(landResult.taxAmount)}</strong>.
+            Bayar pajak <strong>Rp {fmt(landResult.taxAmount)}</strong>.
           </div>
-          <button className="btn btn-danger" onClick={payTax}>Bayar Pajak</button>
-        </div>
-      );
-    }
-
-    // Lempar dadu (di luar penjara — penjara via JailModal)
-    if (canRoll && !waitingFor && !currentPlayer.inJail) {
-      return (
-        <div className="act-block">
-          <button className="btn btn-gold btn-roll" onClick={rollDice}>
-            🎲 Lempar Dadu
+          <button className="btn btn-danger" onClick={payTax}>
+            {currentPlayer.powerUpEffects?.insurance ? 'Gunakan Asuransi' : 'Bayar Pajak'}
           </button>
         </div>
       );
     }
 
-    // Selesai resolusi → akhiri giliran
-    if (!waitingFor && !canRoll) {
+    // Tombol utama memakai tombol dadu yang sama untuk mengakhiri giliran.
+    if (
+      !waitingFor &&
+      ((canRoll && !currentPlayer.inJail) || (!canRoll && lastRoll))
+    ) {
+      const endingTurn = !canRoll && !diceRolling;
       return (
-        <div className="act-block">
-          <button className="btn btn-primary" onClick={endTurn}>
-            Akhiri Giliran ⏭
+        <div className="act-block act-block--roll">
+          <button
+            className={`btn btn-gold btn-roll${diceRolling ? ' btn-roll--rolling' : ''}${endingTurn ? ' btn-roll--end' : ''}`}
+            onClick={() => {
+              if (canRoll) {
+                setDiceRolling(true);
+                rollDice();
+              } else {
+                endTurn();
+              }
+            }}
+            disabled={diceRolling}
+            aria-label={endingTurn ? 'Akhiri giliran' : 'Kocok dadu'}
+          >
+            <img
+              className="game-ui-icon game-ui-icon--roll"
+              src={MILLIONAIRE_UI_ASSETS.roll}
+              alt=""
+              draggable={false}
+            />
+            {endingTurn && <span className="btn-roll-label">Akhiri Giliran</span>}
           </button>
-          {currentPlayer.money < 0 && (
-            <button className="btn btn-danger" onClick={declareBankruptcy}>
+          {endingTurn && currentPlayer.money < 0 && (
+            <button className="btn btn-danger btn-bankruptcy" onClick={declareBankruptcy}>
               Menyerah (Bangkrut)
             </button>
           )}
@@ -161,7 +196,13 @@ export default function ControlPanel({ game, difficulty, onQuit, onOpenTrade, so
   }
 
   return (
-    <aside className="panel">
+    <aside className={`panel ${players.length > 3 ? 'panel--many-players' : ''}`}>
+      <img
+        className="panel-control-base"
+        src={MILLIONAIRE_UI_ASSETS.controlBase}
+        alt=""
+        draggable={false}
+      />
       <div className="panel-head">
         <div className="panel-turn">
           <span className="panel-turn-label">Giliran</span>
@@ -173,36 +214,80 @@ export default function ControlPanel({ game, difficulty, onQuit, onOpenTrade, so
         </div>
         {sound && (
           <button
-            className="btn btn-ghost btn-sm"
+            className="btn btn-ghost btn-sm panel-settings-button"
             onClick={sound.toggle}
             title={sound.enabled ? 'Matikan suara' : 'Nyalakan suara'}
+            aria-label={sound.enabled ? 'Matikan suara' : 'Nyalakan suara'}
           >
-            {sound.enabled ? '🔊' : '🔇'}
+            <img
+              className="panel-settings-icon"
+              src={MILLIONAIRE_UI_ASSETS.settings}
+              alt=""
+              draggable={false}
+            />
+            <span className="sr-only">{sound.enabled ? 'Matikan suara' : 'Nyalakan suara'}</span>
           </button>
         )}
         <button className="btn btn-ghost btn-sm" onClick={onQuit}>Keluar</button>
       </div>
 
-      <DiceDisplay roll={lastRoll} />
+      <DiceDisplay
+        roll={lastRoll}
+        rollDuration={game.settings?.speed === 'cepat' ? 500 : 1000}
+        onRollingChange={setDiceRolling}
+      />
 
       <div className="panel-actions">{actions}</div>
+
+      {cardsOpen && (
+        <PowerUpPanel
+          player={currentPlayer}
+          game={game}
+          onUse={usePowerUp}
+          disabled={isAI}
+        />
+      )}
 
       {/* ── TOOLS: Kelola & Trade ─────────────────────────────── */}
       {!isAI && (
         <div className="panel-tools">
           <button
-            className={`btn btn-ghost btn-sm ${manageOpen ? 'btn-tool--on' : ''}`}
+            className={`btn btn-ghost btn-sm panel-tool-cards ${cardsOpen ? 'btn-tool--on' : ''}`}
             disabled={!toolsEnabled}
-            onClick={() => setManageOpen((v) => !v)}
+            onClick={() => setCardsOpen((v) => !v)}
+            aria-label="Kartu Saya"
+            title="Kartu Saya"
           >
-            🏗 Kelola Properti
+            <img
+              className="panel-tool-image"
+              src={MILLIONAIRE_UI_ASSETS.cards}
+              alt=""
+              draggable={false}
+            />
+            {!!currentPlayer.powerUps?.length && (
+              <span className="panel-tool-count">{currentPlayer.powerUps.length}</span>
+            )}
           </button>
           <button
-            className="btn btn-ghost btn-sm"
+            className={`btn btn-ghost btn-sm panel-tool-assets ${manageOpen ? 'btn-tool--on' : ''}`}
+            disabled={!toolsEnabled}
+            onClick={() => setManageOpen((v) => !v)}
+            aria-label="Aset Saya"
+            title="Aset Saya"
+          >
+            <img
+              className="panel-tool-image"
+              src={MILLIONAIRE_UI_ASSETS.assets}
+              alt=""
+              draggable={false}
+            />
+          </button>
+          <button
+            className="btn btn-ghost btn-sm panel-tool-trade"
             disabled={!toolsEnabled || raising}
             onClick={onOpenTrade}
           >
-            🤝 Trade
+            🤝
           </button>
         </div>
       )}
@@ -211,6 +296,7 @@ export default function ControlPanel({ game, difficulty, onQuit, onOpenTrade, so
         <ManagePanel
           player={currentPlayer}
           game={game}
+          onClose={() => setManageOpen(false)}
           onBuyHouse={buyHouse}
           onBuyHotel={buyHotel}
           onSellHouse={sellHouse}
@@ -221,17 +307,32 @@ export default function ControlPanel({ game, difficulty, onQuit, onOpenTrade, so
       )}
 
       <div className="panel-players">
-        {players.map((p, i) => (
-          <PlayerCard
-            key={p.id}
-            player={p}
-            game={game}
-            isCurrent={i === currentPlayerIndex}
-          />
+        {playerRows.map((row, rowIndex) => (
+          <div className="panel-player-row" key={`row-${rowIndex}`}>
+            {row.map((p) => (
+              <PlayerCard
+                key={p.id}
+                player={p}
+                game={game}
+                isCurrent={p.id === players[currentPlayerIndex]?.id}
+              />
+            ))}
+          </div>
         ))}
       </div>
 
-      <GameLog log={log} />
+      {logOpen ? (
+        <GameLog log={log} onClose={() => setLogOpen(false)} />
+      ) : (
+        <button
+          className="panel-log-reopen"
+          onClick={() => setLogOpen(true)}
+          aria-label="Buka log"
+          title="Buka log permainan"
+        >
+          📜
+        </button>
+      )}
     </aside>
   );
 }
@@ -240,18 +341,32 @@ export default function ControlPanel({ game, difficulty, onQuit, onOpenTrade, so
 // PANEL KELOLA — bangun rumah/hotel & gadai/tebus
 // ─────────────────────────────────────────────────────────────
 
-function ManagePanel({ player, game, onBuyHouse, onBuyHotel, onSellHouse, onSellHotel, onMortgage, onUnmortgage }) {
+function ManagePanel({ player, game, onClose, onBuyHouse, onBuyHotel, onSellHouse, onSellHotel, onMortgage, onUnmortgage }) {
   const { owners, houses, hotels, housesLeft, hotelsLeft } = game;
+  const propertyTypes = ['property', 'airport', 'utility'];
+  const allProperties = SQUARES.filter((square) => propertyTypes.includes(square.type));
+  const myProps = allProperties.filter((square) => owners[square.id] === player.id);
+  const assetValue = myProps.reduce((total, square) =>
+    total +
+      (square.price || 0) +
+      (houses[square.id] || 0) * (square.houseCost || 0) +
+      (hotels[square.id] || 0) * (square.hotelCost || 0), 0);
+  const avatar = player.id === 0
+    ? 'avatar_gold'
+    : player.id % 2
+      ? 'avatar_blue'
+      : 'avatar_green';
+  const [previewSquare, setPreviewSquare] = useState(null);
 
-  const myProps = SQUARES.filter((s) => owners[s.id] === player.id);
-  if (myProps.length === 0) {
-    return (
-      <div className="manage">
-        <div className="manage-title">Kelola Properti</div>
-        <div className="manage-empty">Belum punya properti.</div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      if (event.key !== 'Escape') return;
+      if (previewSquare) setPreviewSquare(null);
+      else onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onClose, previewSquare]);
 
   // Apakah ada properti komplex yang sedang digadai (blokir build seluruh komplex)
   const komplexHasMortgage = (komplex) =>
@@ -284,7 +399,8 @@ function ManagePanel({ player, game, onBuyHouse, onBuyHotel, onSellHouse, onSell
     const canBuildHouse =
       isBuildable && full && safeKomplex && !mortgaged && !hasHotel &&
       h < 4 && h === minHousesInKomplex(sq.komplex) &&
-      housesLeft > 0 && player.money >= sq.houseCost;
+      housesLeft > 0 &&
+      (player.money >= sq.houseCost || player.powerUpEffects?.freeHouse === true);
 
     const canBuildHotel =
       isBuildable && full && safeKomplex && !mortgaged && !hasHotel &&
@@ -315,100 +431,237 @@ function ManagePanel({ player, game, onBuyHouse, onBuyHotel, onSellHouse, onSell
   };
 
   return (
-    <div className="manage">
-      <div className="manage-title">
-        Kelola Properti
-        <span className="manage-stock">🏠 {housesLeft} · 🏨 {hotelsLeft}</span>
-      </div>
+    <div
+      className="asset-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Aset saya"
+      onClick={onClose}
+    >
+      <div className="asset-window" onClick={(event) => event.stopPropagation()}>
+        <img
+          className="asset-window-frame"
+          src={MILLIONAIRE_UI_ASSETS.assetFrame}
+          alt=""
+          draggable={false}
+        />
+        <div className="asset-owner">
+          <img
+            src={`/millionaire-game/assets/ui/${avatar}.png`}
+            alt=""
+            draggable={false}
+          />
+          <span>{player.name}</span>
+        </div>
+        <button
+          className="asset-window-close"
+          onClick={onClose}
+          aria-label="Tutup aset saya"
+          title="Tutup"
+        />
+        <div className="asset-money">Uang Anda: <strong>Rp {fmt(player.money)}</strong></div>
+        <div className="asset-count">
+          Total Properti: <strong>{myProps.length}/{allProperties.length}</strong>
+        </div>
+        <div className="asset-value">
+          Total Nilai Aset: <strong>Rp {fmt(assetValue)}</strong>
+        </div>
 
-      <div className="manage-list">
-        {myProps.map((sq) => {
+        <div className="asset-list" aria-label="Daftar properti milik pemain">
+          {myProps.length ? myProps.map((sq) => {
           const e = evalSquare(sq);
           return (
-            <div
+            <article
               key={sq.id}
-              className={`manage-row ${e.mortgaged ? 'manage-row--mortgaged' : ''}`}
+              className={`asset-card${e.mortgaged ? ' asset-card--mortgaged' : ''}`}
               style={{ '--pc': propColor(sq) }}
             >
-              <div className="manage-info">
-                <span className="manage-name">{sq.name}</span>
-                <span className="manage-tags">
-                  {e.hasHotel ? '🏨'
-                    : e.h > 0 ? '🏠'.repeat(e.h)
-                    : e.mortgaged ? 'digadai'
-                    : '—'}
-                </span>
-              </div>
-
-              <div className="manage-btns">
+              <button
+                className="asset-property-button"
+                onClick={() => setPreviewSquare(sq)}
+                aria-label={`Perbesar kartu ${sq.name}`}
+                title={`Lihat kartu ${sq.name}`}
+              >
+                <img
+                  className="asset-property-image"
+                  src={getPropertyCardImage(sq)}
+                  alt={sq.name}
+                  draggable={false}
+                />
+              </button>
+              <img className="asset-empty-image" src={MILLIONAIRE_UI_ASSETS.assetEmpty} alt="" draggable={false} />
+              <div className="asset-actions">
                 {e.isBuildable && !e.hasHotel && e.h > 0 && (
                   <button
-                    className="btn-mini btn-mini-sell"
+                    className="asset-action asset-action--text"
                     disabled={!e.canSellHouse}
-                    title={`Jual rumah (+$${fmt(e.houseRefund)})`}
+                    title={`Jual rumah (+Rp ${fmt(e.houseRefund)})`}
                     onClick={() => onSellHouse(sq.id)}
                   >
-                    −🏠
+                    Jual Rumah
                   </button>
                 )}
                 {e.isBuildable && e.hasHotel && (
                   <button
-                    className="btn-mini btn-mini-sell"
+                    className="asset-action asset-action--text"
                     disabled={!e.canSellHotel}
-                    title={`Jual hotel → 4 rumah (+$${fmt(e.hotelRefund)})`}
+                    title={`Jual hotel → 4 rumah (+Rp ${fmt(e.hotelRefund)})`}
                     onClick={() => onSellHotel(sq.id)}
                   >
-                    −🏨
+                    Jual Hotel
                   </button>
                 )}
                 {e.isBuildable && !e.hasHotel && e.h < 4 && (
                   <button
-                    className="btn-mini btn-mini-build"
+                    className="asset-action"
                     disabled={!e.canBuildHouse}
-                    title={`Bangun rumah ($${fmt(sq.houseCost)})`}
+                    title={player.powerUpEffects?.freeHouse
+                      ? 'Bangun rumah gratis'
+                      : `Bangun rumah (Rp ${fmt(sq.houseCost)})`}
                     onClick={() => onBuyHouse(sq.id)}
                   >
-                    +🏠
+                    <img src={MILLIONAIRE_UI_ASSETS.assetBuild} alt="Bangun" draggable={false} />
                   </button>
                 )}
                 {e.isBuildable && !e.hasHotel && e.h === 4 && (
                   <button
-                    className="btn-mini btn-mini-build"
+                    className="asset-action"
                     disabled={!e.canBuildHotel}
-                    title={`Bangun hotel ($${fmt(sq.hotelCost)})`}
+                    title={`Bangun hotel (Rp ${fmt(sq.hotelCost)})`}
                     onClick={() => onBuyHotel(sq.id)}
                   >
-                    +🏨
+                    <img src={MILLIONAIRE_UI_ASSETS.assetBuild} alt="Bangun hotel" draggable={false} />
                   </button>
                 )}
                 {e.mortgaged ? (
                   <button
-                    className="btn-mini btn-mini-unmort"
+                    className="asset-action asset-action--text"
                     disabled={!e.canUnmortgage}
-                    title={`Tebus ($${fmt(e.unmortgageCost)})`}
+                    title={`Tebus (Rp ${fmt(e.unmortgageCost)})`}
                     onClick={() => onUnmortgage(sq.id)}
                   >
                     Tebus
                   </button>
                 ) : (
                   <button
-                    className="btn-mini btn-mini-mort"
+                    className="asset-action"
                     disabled={!e.canMortgage}
-                    title={`Gadai (+$${fmt(e.mortgageValue)})`}
+                    title={`Gadai (+Rp ${fmt(e.mortgageValue)})`}
                     onClick={() => onMortgage(sq.id)}
                   >
-                    Gadai
+                    <img src={MILLIONAIRE_UI_ASSETS.assetMortgage} alt="Gadai" draggable={false} />
                   </button>
                 )}
               </div>
-            </div>
+            </article>
           );
-        })}
-      </div>
+          }) : (
+            <div className="asset-empty-message">
+              Belum ada properti.<br />
+              Beli properti saat mendarat di petaknya,<br />
+              kartunya akan tersimpan di sini.
+            </div>
+          )}
+        </div>
 
-      <div className="manage-hint">
-        Bangun hanya jika menguasai seluruh komplex (merata). Gadai harus tanpa bangunan.
+        {previewSquare && (
+          <div className="asset-card-preview" onClick={() => setPreviewSquare(null)}>
+            <div className="asset-card-preview-content" onClick={(event) => event.stopPropagation()}>
+              <strong>{previewSquare.name}</strong>
+              <img src={getPropertyCardImage(previewSquare)} alt={previewSquare.name} draggable={false} />
+              <button className="asset-preview-close" onClick={() => setPreviewSquare(null)}>Tutup</button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
+  );
+}
+
+const POWER_UP_LABELS = {
+  power_discount_next_buy: 'Diskon properti',
+  power_free_house: 'Gratis bangun',
+  power_double_rent: 'Sewa ganda',
+  power_insurance: 'Asuransi',
+  power_golden_die: 'Dadu emas',
+  power_reroll: 'Lempar ulang',
+  power_extra_turn: 'Giliran ganda',
+  power_ticket_station: 'Tiket perjalanan',
+};
+
+function PowerUpPanel({ player, game, onUse, disabled }) {
+  const [dieChoice, setDieChoice] = useState('6');
+  const [squareChoice, setSquareChoice] = useState('');
+  const cards = player?.powerUps || [];
+  if (!cards.length) return null;
+
+  const destinations = SQUARES.filter((square) =>
+    square.type === 'airport' || square.type === 'utility'
+  );
+  const canUse = (action) => {
+    if (action === 'power_discount_next_buy') return game.waitingFor === 'BUY_DECISION';
+    if (action === 'power_insurance') {
+      return !game.waitingFor || game.waitingFor === 'PAY_TAX' ||
+        (game.waitingFor === 'APPLY_CARD' && ['pay', 'repairs'].includes(game.activeCard?.type));
+    }
+    if (['power_golden_die', 'power_reroll'].includes(action)) {
+      return game.canRoll && !game.waitingFor;
+    }
+    return [
+      'power_free_house', 'power_double_rent', 'power_extra_turn', 'power_ticket_station',
+    ].includes(action) && !game.waitingFor;
+  };
+  const activate = (card) => {
+    const payload = { cardId: card.id };
+    if (card.action === 'power_golden_die') payload.choice = Number(dieChoice);
+    if (card.action === 'power_ticket_station') {
+      payload.squareId = Number(squareChoice || destinations[0]?.id);
+    }
+    onUse(payload);
+  };
+
+  return (
+    <section className="power-ups" aria-label="Power Up">
+      <div className="power-ups-title">Power Up</div>
+      {cards.map((card) => (
+        <div className="power-up-row" key={card.id}>
+          <div className="power-up-info">
+            <strong>{card.name || POWER_UP_LABELS[card.action] || 'Power Up'}</strong>
+            <span>{card.text}</span>
+          </div>
+          <div className="power-up-controls">
+            {card.action === 'power_golden_die' && (
+              <select
+                aria-label="Pilih angka dadu emas"
+                value={dieChoice}
+                onChange={(event) => setDieChoice(event.target.value)}
+              >
+                {[1, 2, 3, 4, 5, 6].map((value) => (
+                  <option key={value} value={value}>{value}</option>
+                ))}
+              </select>
+            )}
+            {card.action === 'power_ticket_station' && (
+              <select
+                aria-label="Pilih tujuan tiket"
+                value={squareChoice || destinations[0]?.id || ''}
+                onChange={(event) => setSquareChoice(event.target.value)}
+              >
+                {destinations.map((square) => (
+                  <option key={square.id} value={square.id}>{square.name}</option>
+                ))}
+              </select>
+            )}
+            <button
+              className="btn btn-gold btn-sm"
+              disabled={disabled || !canUse(card.action)}
+              onClick={() => activate(card)}
+            >
+              Gunakan
+            </button>
+          </div>
+        </div>
+      ))}
+    </section>
   );
 }

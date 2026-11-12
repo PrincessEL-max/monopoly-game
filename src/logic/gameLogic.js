@@ -16,8 +16,10 @@ import { calculateRent } from './rentLogic.js';
 /**
  * Roll 2 dadu, return { d1, d2, total, isDouble }
  */
-export const rollDice = () => {
-  const d1 = Math.floor(Math.random() * 6) + 1;
+export const rollDice = (fixedDie = null) => {
+  const d1 = Number.isInteger(fixedDie) && fixedDie >= 1 && fixedDie <= 6
+    ? fixedDie
+    : Math.floor(Math.random() * 6) + 1;
   const d2 = Math.floor(Math.random() * 6) + 1;
   return { d1, d2, total: d1 + d2, isDouble: d1 === d2 };
 };
@@ -281,7 +283,7 @@ export const unmortgageProperty = (player, squareId) => {
  * Beli rumah di properti
  * Return patch atau null jika syarat tidak terpenuhi
  */
-export const buyHouse = (player, squareId, gameState) => {
+export const buyHouse = (player, squareId, gameState, { free = false } = {}) => {
   const { owners, houses, hotels, housesLeft, hotelsLeft } = gameState;
   const square = SQUARES.find((s) => s.id === squareId);
 
@@ -289,10 +291,11 @@ export const buyHouse = (player, squareId, gameState) => {
   if (hotels[squareId] > 0) return null; // sudah ada hotel
   if ((houses[squareId] || 0) >= 4) return null; // harus beli hotel
   if (housesLeft <= 0) return null; // stok habis
-  if (player.money < square.houseCost) return null;
+  const cost = free ? 0 : square.houseCost;
+  if (player.money < cost) return null;
 
   return {
-    playerPatch: { money: player.money - square.houseCost },
+    playerPatch: { money: player.money - cost },
     housesPatch: { [squareId]: (houses[squareId] || 0) + 1 },
     housesLeft: housesLeft - 1,
   };
@@ -413,6 +416,8 @@ export const liquidatePlayer = (state, bankruptId, creditorId) => {
       return {
         ...p, money: 0, bankrupt: true, inJail: false, jailTurns: 0,
         mortgaged: [], jailFreeCards: { chance: 0, community_chest: 0 },
+        powerUps: [],
+        powerUpEffects: {},
       };
     }
     if (p.id === creditorId) {
@@ -527,23 +532,36 @@ export const getNextTurn = (currentIndex, players, rolledDouble, wentToJail) => 
  * Buat initial game state
  * @param {Array} playerSetups — [{ name, piece, isAI }]
  */
-export const createInitialState = (playerSetups) => {
+export const createInitialState = (playerSetups, settings = {}) => {
+  const startingMoneyValues = [150000, 200000, 250000, 300000, 400000, 500000];
+  const startingMoney = startingMoneyValues.includes(settings.startMoney)
+    ? settings.startMoney
+    : RULES.STARTING_MONEY;
+  const normalizedSettings = {
+    map: ['nusantara', 'dunia', 'kota'].includes(settings.map) ? settings.map : 'nusantara',
+    startMoney: startingMoney,
+    speed: settings.speed === 'cepat' ? 'cepat' : 'normal',
+    turnSeconds: [15, 30, 45].includes(settings.turnSeconds) ? settings.turnSeconds : null,
+  };
   const players = playerSetups.map((setup, i) => ({
     id: i,
     name: setup.name,
     piece: setup.piece,
     isAI: setup.isAI || false,
-    money: RULES.STARTING_MONEY,
+    difficulty: setup.difficulty || 'medium',
+    money: startingMoney,
     position: 0,
     inJail: false,
     jailTurns: 0,
     consecutiveDoubles: 0,
     mortgaged: [],
     jailFreeCards: { chance: 0, community_chest: 0 },
+    powerUps: [],
+    powerUpEffects: {},
     bankrupt: false,
     // Statistik (Prioritas 3)
     stats: {
-      peakMoney: RULES.STARTING_MONEY,  // kas tertinggi yang pernah dicapai
+      peakMoney: startingMoney,         // kas tertinggi yang pernah dicapai
       maxProps: 0,                       // properti terbanyak yang pernah dimiliki
       rentPaid: 0,                       // total sewa yang dibayar
       rentEarned: 0,                     // total sewa yang diterima
@@ -552,9 +570,11 @@ export const createInitialState = (playerSetups) => {
 
   return {
     players,
+    settings: normalizedSettings,
     currentPlayerIndex: 0,
     turnCount: 0,             // total giliran yang sudah berjalan
     startedAt: Date.now(),    // timestamp mulai (untuk durasi)
+    turnStartedAt: null,
     turnEnded: false,         // true bila reducer sudah memindahkan giliran sendiri
     phase: 'setup',         // 'setup' | 'playing' | 'ended'
     owners: {},             // { squareId: playerId }
@@ -571,6 +591,11 @@ export const createInitialState = (playerSetups) => {
     activeCard: null,       // kartu yang sedang aktif
     auction: null,          // sesi lelang aktif
     pendingDebt: null,      // kewajiban yang harus dilunasi (raise funds)
+    pendingPayments: null,
+    pendingReroll: null,
+    pendingTrade: null,
+    waitingFor: null,
+    canRoll: true,
     winner: null,
   };
 };

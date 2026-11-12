@@ -4,6 +4,7 @@ import {
   INITIAL_GAME_STATE,
   reducer,
 } from "../../../src/logic/gameReducer.js";
+import { SQUARES } from "../../../src/constants/squares.js";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -30,10 +31,17 @@ const ALLOWED_ACTIONS = new Set(
 );
 const roomChannel = (roomId: string) => `monopoly-room:${roomId}`;
 
-type GamePlayer = { id: number; bankrupt?: boolean };
+type GamePlayer = {
+  id: number;
+  bankrupt?: boolean;
+  isAI?: boolean;
+  powerUps?: { id: string; action: string }[];
+};
 type GameState = {
   players: GamePlayer[];
   currentPlayerIndex: number;
+  turnStartedAt?: number | null;
+  settings?: { turnSeconds?: number | null };
   auction?: { currentBidderId: number } | null;
   pendingTrade?: { to: number } | null;
 };
@@ -45,6 +53,11 @@ type RoomRecord = {
   started: boolean;
   game_state: GameState | null;
   version: number;
+  room_type: "Publik" | "Privat";
+  map_id: "nusantara" | "dunia" | "kota";
+  start_money: 200000 | 250000 | 300000;
+  turn_seconds: 15 | 30 | 45;
+  mode: "room" | "quick";
 };
 type RoomPlayer = {
   id: string;
@@ -53,6 +66,16 @@ type RoomPlayer = {
   name: string;
   piece: string;
   connected: boolean;
+  profile_id: string | null;
+  is_bot: boolean;
+  difficulty: "Mudah" | "Sedang" | "Sulit";
+};
+type ProfileRecord = {
+  id: string;
+  public_id: string;
+  token_hash: string;
+  display_name: string;
+  online_until: string;
 };
 
 class RequestError extends Error {
@@ -111,7 +134,7 @@ const getRoom = async (roomId: string): Promise<RoomRecord> => {
 const getPlayers = async (roomId: string): Promise<RoomPlayer[]> => {
   const { data, error } = await db
     .from("monopoly_room_players")
-    .select("id, seat_index, name, piece, connected")
+    .select("id, seat_index, name, piece, connected, profile_id, is_bot, difficulty")
     .eq("room_id", roomId)
     .order("seat_index");
   if (error) throwDatabaseError(error);
@@ -123,6 +146,17 @@ const roomSnapshot = async (roomId: string) => {
     getRoom(roomId),
     getPlayers(roomId),
   ]);
+  const profileIds = players
+    .map((player) => player.profile_id)
+    .filter((id): id is string => Boolean(id));
+  const { data: profiles, error: profileError } = profileIds.length
+    ? await db.from("monopoly_profiles").select("id, public_id").in("id", profileIds)
+    : { data: [], error: null };
+  if (profileError) throwDatabaseError(profileError);
+  const publicIds = new Map<string, string>();
+  for (const profile of profiles || []) {
+    publicIds.set(profile.id, profile.public_id);
+  }
   return {
     room: {
       id: room.id,
@@ -130,12 +164,23 @@ const roomSnapshot = async (roomId: string) => {
       maxPlayers: room.max_players,
       started: room.started,
       hostPlayerId: room.host_player_id,
+      settings: {
+        type: room.room_type,
+        map: room.map_id,
+        startMoney: room.start_money,
+        turnSeconds: room.turn_seconds,
+        mode: room.mode,
+      },
       players: players.map((player) => ({
         playerId: player.id,
         seatIndex: player.seat_index,
         name: player.name,
         piece: player.piece,
         connected: player.connected,
+        profileId: player.profile_id,
+        publicId: player.profile_id ? publicIds.get(player.profile_id) || null : null,
+        isBot: player.is_bot,
+        difficulty: player.difficulty,
       })),
     },
     gameState: room.game_state,
@@ -158,7 +203,7 @@ const requirePlayer = async (
   const tokenHash = await hashToken(token);
   const { data: player, error: playerError } = await db
     .from("monopoly_room_players")
-    .select("id, room_id, seat_index, connected")
+    .select("id, room_id, seat_index, connected, profile_id, is_bot, difficulty")
     .eq("id", playerId)
     .eq("token_hash", tokenHash)
     .maybeSingle();
@@ -171,6 +216,85 @@ const requirePlayer = async (
     throw new RequestError("Kode room tidak cocok dengan sesi ini.", 401);
   }
   return { player: member, room };
+};
+
+const requireProfile = async (
+  body: Record<string, unknown>,
+): Promise<ProfileRecord> => {
+  const profileId = typeof body.profileId === "string" ? body.profileId : "";
+  const token = typeof body.profileToken === "string" ? body.profileToken : "";
+  if (!profileId || !/^[a-f0-9]{64}$/.test(token)) {
+    throw new RequestError("Sesi pemain tidak valid.", 401);
+  }
+
+  const tokenHash = await hashToken(token);
+  const { data: profile, error } = await db
+    .from("monopoly_profiles")
+    .select("id, public_id, token_hash, display_name, online_until")
+    .eq("id", profileId)
+    .eq("token_hash", tokenHash)
+    .maybeSingle();
+  if (error) throwDatabaseError(error);
+  if (!profile) throw new RequestError("Sesi pemain tidak dapat dipulihkan.", 401);
+  return profile as ProfileRecord;
+};
+
+const profileSocialData = async (profile: ProfileRecord) => {
+  const now = new Date().toISOString();
+  const [friendLinks, onlineCount, startedRooms, inviteRows] = await Promise.all([
+    db.from("monopoly_friends").select("friend_id").eq("profile_id", profile.id),
+    db.from("monopoly_profiles").select("id", { count: "exact", head: true }).gt("online_until", now),
+    db.from("monopoly_rooms").select("id").eq("started", true),
+    db.from("monopoly_friend_invites")
+      .select("id, sender_id, room_code")
+      .eq("target_id", profile.id)
+      .gt("expires_at", now)
+      .order("created_at", { ascending: false })
+      .limit(10),
+  ]);
+  if (friendLinks.error) throwDatabaseError(friendLinks.error);
+  if (onlineCount.error) throwDatabaseError(onlineCount.error);
+  if (startedRooms.error) throwDatabaseError(startedRooms.error);
+  if (inviteRows.error) throwDatabaseError(inviteRows.error);
+
+  const friendIds = (friendLinks.data || []).map((link) => link.friend_id);
+  const [friendProfiles, senders, activePlayers] = await Promise.all([
+    friendIds.length
+      ? db.from("monopoly_profiles")
+        .select("id, public_id, display_name, online_until")
+        .in("id", friendIds)
+      : Promise.resolve({ data: [], error: null }),
+    inviteRows.data?.length
+      ? db.from("monopoly_profiles")
+        .select("id, display_name")
+        .in("id", inviteRows.data.map((invite) => invite.sender_id))
+      : Promise.resolve({ data: [], error: null }),
+    startedRooms.data?.length
+      ? db.from("monopoly_room_players")
+        .select("id", { count: "exact", head: true })
+        .in("room_id", startedRooms.data.map((room) => room.id))
+        .eq("connected", true)
+      : Promise.resolve({ count: 0, error: null }),
+  ]);
+  if (friendProfiles.error) throwDatabaseError(friendProfiles.error);
+  if (senders.error) throwDatabaseError(senders.error);
+  if (activePlayers.error) throwDatabaseError(activePlayers.error);
+
+  const senderNames = new Map((senders.data || []).map((sender) => [sender.id, sender.display_name]));
+  return {
+    friends: (friendProfiles.data || []).map((friend) => ({
+      id: friend.public_id,
+      name: friend.display_name,
+      online: Date.parse(friend.online_until) > Date.now(),
+    })),
+    totalOnline: onlineCount.count || 0,
+    activePlayers: activePlayers.count || 0,
+    invites: (inviteRows.data || []).map((invite) => ({
+      id: invite.id,
+      fromName: senderNames.get(invite.sender_id) || "Teman",
+      roomCode: invite.room_code,
+    })),
+  };
 };
 
 const publishChange = async (roomId: string, version: number) => {
@@ -225,14 +349,36 @@ const validateAction = (
   if (!room.started || !state || !ALLOWED_ACTIONS.has(action.type as string)) {
     throw new RequestError("Aksi tidak valid.");
   }
-  if (
-    !state.players?.[player.seat_index] ||
-    state.players[player.seat_index].bankrupt
-  ) {
+  const memberPlayer = state.players?.[player.seat_index];
+  const expectedPlayer = action.type === ACTIONS.AUCTION_BID ||
+      action.type === ACTIONS.AUCTION_PASS
+    ? state.players.find((candidate) =>
+      candidate.id === state.auction?.currentBidderId
+    )
+    : action.type === ACTIONS.ACCEPT_TRADE ||
+        action.type === ACTIONS.REJECT_TRADE
+    ? state.players.find((candidate) =>
+      candidate.id === state.pendingTrade?.to
+    )
+    : state.players[state.currentPlayerIndex];
+  const hostControlsBot = player.id === room.host_player_id &&
+    expectedPlayer?.isAI === true;
+  const turnSeconds = state.settings?.turnSeconds;
+  const turnExpired = typeof state.turnStartedAt === "number" &&
+    typeof turnSeconds === "number" &&
+    Date.now() >= state.turnStartedAt + turnSeconds * 1000;
+  const hostControlsTimedOutPlayer = player.id === room.host_player_id &&
+    turnExpired;
+  const gamePlayer = hostControlsBot || hostControlsTimedOutPlayer
+    ? expectedPlayer
+    : memberPlayer;
+  if (!gamePlayer || gamePlayer.bankrupt) {
+    throw new RequestError("Pemain tidak aktif.");
+  }
+  if (!hostControlsBot && !memberPlayer) {
     throw new RequestError("Pemain tidak aktif.");
   }
 
-  const gamePlayer = state.players[player.seat_index];
   if (
     action.type === ACTIONS.AUCTION_BID || action.type === ACTIONS.AUCTION_PASS
   ) {
@@ -283,6 +429,26 @@ const validateAction = (
   ) {
     throw new RequestError("Kartu tidak valid.");
   }
+  if (action.type === ACTIONS.ROLL_DICE && "rollOverride" in action) {
+    throw new RequestError("Hasil dadu tidak boleh ditentukan oleh pemain.");
+  }
+  if (action.type === ACTIONS.USE_POWER_UP) {
+    const powerUp = gamePlayer.powerUps?.find((card) => card.id === action.cardId);
+    if (!powerUp) throw new RequestError("Power Up tidak ditemukan.");
+    if (
+      powerUp.action === "power_golden_die" &&
+      (!Number.isInteger(action.choice) || Number(action.choice) < 1 ||
+        Number(action.choice) > 6)
+    ) {
+      throw new RequestError("Pilihan dadu tidak valid.");
+    }
+    if (powerUp.action === "power_ticket_station") {
+      const target = SQUARES.find((square) => square.id === action.squareId);
+      if (!target || !["airport", "utility"].includes(target.type)) {
+        throw new RequestError("Tujuan tiket tidak valid.");
+      }
+    }
+  }
   if (action.type === ACTIONS.PROPOSE_TRADE) {
     const offer = action.offer as Record<string, unknown> | undefined;
     const playerIds = new Set(
@@ -311,18 +477,258 @@ const validateAction = (
 
 const handleRequest = async (body: Record<string, unknown>) => {
   switch (body.operation) {
+    case "profile": {
+      const name = typeof body.name === "string"
+        ? body.name.trim().slice(0, 16)
+        : "Pemain 1";
+      if (!name) throw new RequestError("Nama pemain tidak boleh kosong.");
+
+      let profile: ProfileRecord;
+      let token: string;
+      if (typeof body.profileId === "string" && typeof body.profileToken === "string") {
+        profile = await requireProfile(body);
+        token = body.profileToken;
+        const { data: updated, error } = await db
+          .from("monopoly_profiles")
+          .update({ display_name: name, online_until: new Date(Date.now() + 60_000).toISOString() })
+          .eq("id", profile.id)
+          .select("id, public_id, token_hash, display_name, online_until")
+          .single();
+        if (error) throwDatabaseError(error);
+        profile = updated as ProfileRecord;
+      } else {
+        const profileId = crypto.randomUUID();
+        token = randomToken();
+        let created: ProfileRecord | null = null;
+        for (let attempt = 0; attempt < 5; attempt += 1) {
+          const publicId = randomCode();
+          const { data, error } = await db
+            .from("monopoly_profiles")
+            .insert({
+              id: profileId,
+              public_id: publicId,
+              token_hash: await hashToken(token),
+              display_name: name,
+              online_until: new Date(Date.now() + 60_000).toISOString(),
+            })
+            .select("id, public_id, token_hash, display_name, online_until")
+            .maybeSingle();
+          if (!error) {
+            created = data as ProfileRecord;
+            break;
+          }
+          if (error.code !== "23505" || attempt === 4) throwDatabaseError(error);
+        }
+        if (!created) throw new RequestError("Profil pemain tidak dapat dibuat.", 500);
+        profile = created;
+      }
+
+      return {
+        profile: { id: profile.id, publicId: profile.public_id, name: profile.display_name },
+        profileToken: token,
+        social: await profileSocialData(profile),
+      };
+    }
+
+    case "friend_search": {
+      const profile = await requireProfile(body);
+      const query = typeof body.query === "string" ? body.query.trim().slice(0, 24) : "";
+      if (!query) return { results: [] };
+      const [exact, byName] = await Promise.all([
+        db.from("monopoly_profiles")
+          .select("public_id, display_name, online_until")
+          .eq("public_id", query.toUpperCase())
+          .neq("id", profile.id)
+          .limit(10),
+        db.from("monopoly_profiles")
+          .select("public_id, display_name, online_until")
+          .ilike("display_name", `%${query}%`)
+          .neq("id", profile.id)
+          .limit(10),
+      ]);
+      if (exact.error) throwDatabaseError(exact.error);
+      if (byName.error) throwDatabaseError(byName.error);
+      const results = new Map<string, {
+        public_id: string;
+        display_name: string;
+        online_until: string;
+      }>();
+      [...(exact.data || []), ...(byName.data || [])].forEach((candidate) =>
+        results.set(candidate.public_id, candidate)
+      );
+      return {
+        results: [...results.values()].map((candidate) => ({
+          id: candidate.public_id,
+          name: candidate.display_name,
+          online: Date.parse(candidate.online_until) > Date.now(),
+        })),
+      };
+    }
+
+    case "friend_add": {
+      const profile = await requireProfile(body);
+      const publicId = typeof body.friendId === "string"
+        ? body.friendId.trim().toUpperCase()
+        : "";
+      const { data: friend, error: friendError } = await db
+        .from("monopoly_profiles")
+        .select("id")
+        .eq("public_id", publicId)
+        .maybeSingle();
+      if (friendError) throwDatabaseError(friendError);
+      if (!friend) throw new RequestError("Pemain dengan ID tersebut tidak ditemukan.", 404);
+      if (friend.id === profile.id) throw new RequestError("Kamu tidak dapat menambahkan dirimu sendiri.");
+
+      const links = [
+        { profile_id: profile.id, friend_id: friend.id },
+        { profile_id: friend.id, friend_id: profile.id },
+      ];
+      const { error } = await db.from("monopoly_friends").upsert(links, {
+        onConflict: "profile_id,friend_id",
+        ignoreDuplicates: true,
+      });
+      if (error) throwDatabaseError(error);
+      return { added: true };
+    }
+
+    case "friend_invite": {
+      const profile = await requireProfile(body);
+      const publicId = typeof body.friendId === "string"
+        ? body.friendId.trim().toUpperCase()
+        : "";
+      const { data: friend, error: friendError } = await db
+        .from("monopoly_profiles")
+        .select("id")
+        .eq("public_id", publicId)
+        .maybeSingle();
+      if (friendError) throwDatabaseError(friendError);
+      if (!friend) throw new RequestError("Teman tidak ditemukan.", 404);
+      const { error } = await db.from("monopoly_friend_invites").insert({
+        sender_id: profile.id,
+        target_id: friend.id,
+        room_code: typeof body.roomCode === "string" ? body.roomCode : null,
+      });
+      if (error) throwDatabaseError(error);
+      return { sent: true };
+    }
+
+    case "matchmaking_join": {
+      const profile = await requireProfile(body);
+      const name = typeof body.name === "string"
+        ? body.name.trim().slice(0, 16)
+        : profile.display_name;
+      const piece = body.piece;
+      if (!name || !PIECES.has(piece as string)) {
+        throw new RequestError("Nama atau bidak tidak valid.");
+      }
+
+      const { data: existing, error: existingError } = await db
+        .from("monopoly_matchmaking_queue")
+        .select("player_id, room_id")
+        .eq("profile_id", profile.id)
+        .maybeSingle();
+      if (existingError) throwDatabaseError(existingError);
+      if (existing) {
+        throw new RequestError("Pencarian lawan sebelumnya masih aktif.");
+      }
+
+      const playerId = crypto.randomUUID();
+      const token = randomToken();
+      const { error } = await db.from("monopoly_matchmaking_queue").insert({
+        profile_id: profile.id,
+        player_id: playerId,
+        token_hash: await hashToken(token),
+        name,
+        piece,
+      });
+      if (error) throwDatabaseError(error);
+
+      const { data: matchedRoomId, error: matchError } = await db.rpc(
+        "match_monopoly_queue",
+        { p_room_id: crypto.randomUUID() },
+      );
+      if (matchError) throwDatabaseError(matchError);
+      if (matchedRoomId) {
+        const room = await getRoom(matchedRoomId);
+        await publishChange(room.id, room.version);
+      }
+      return { playerId, token, estimatedSeconds: 30 };
+    }
+
+    case "matchmaking_status": {
+      const profile = await requireProfile(body);
+      const playerId = typeof body.playerId === "string" ? body.playerId : "";
+      const token = typeof body.token === "string" ? body.token : "";
+      if (!playerId || !/^[a-f0-9]{64}$/.test(token)) {
+        throw new RequestError("Sesi pencarian tidak valid.", 401);
+      }
+      const { data: queued, error } = await db
+        .from("monopoly_matchmaking_queue")
+        .select("room_id")
+        .eq("profile_id", profile.id)
+        .eq("player_id", playerId)
+        .eq("token_hash", await hashToken(token))
+        .maybeSingle();
+      if (error) throwDatabaseError(error);
+      if (!queued) throw new RequestError("Pencarian lawan tidak ditemukan.", 404);
+      if (!queued.room_id) return { status: "waiting" };
+
+      const snapshot = await roomSnapshot(queued.room_id);
+      return {
+        status: "matched",
+        ...snapshot,
+        playerId,
+        token,
+        profileId: profile.id,
+      };
+    }
+
+    case "matchmaking_cancel": {
+      const profile = await requireProfile(body);
+      const playerId = typeof body.playerId === "string" ? body.playerId : "";
+      const token = typeof body.token === "string" ? body.token : "";
+      if (!playerId || !/^[a-f0-9]{64}$/.test(token)) {
+        throw new RequestError("Sesi pencarian tidak valid.", 401);
+      }
+      const { data: queued, error } = await db
+        .from("monopoly_matchmaking_queue")
+        .select("player_id")
+        .eq("profile_id", profile.id)
+        .eq("player_id", playerId)
+        .eq("token_hash", await hashToken(token))
+        .maybeSingle();
+      if (error) throwDatabaseError(error);
+      if (!queued) return { cancelled: true };
+      const { data, error: cancelError } = await db.rpc(
+        "cancel_monopoly_matchmaking",
+        { p_profile_id: profile.id, p_player_id: playerId },
+      );
+      if (cancelError) throwDatabaseError(cancelError);
+      return { cancelled: Boolean(data) };
+    }
+
     case "create": {
       const name = typeof body.name === "string"
         ? body.name.trim().slice(0, 16)
         : "";
       const piece = body.piece;
       const maxPlayers = Number(body.maxPlayers);
+      const roomType = body.type === "Privat" ? "Privat" : "Publik";
+      const mapId = body.map === "dunia" || body.map === "kota"
+        ? body.map
+        : "nusantara";
+      const startMoney = Number(body.startMoney ?? 250000);
+      const turnSeconds = Number(body.turnSeconds ?? 30);
+      const profileId = typeof body.profileId === "string" ? body.profileId : null;
       if (
         !name || !PIECES.has(piece as string) ||
-        !Number.isInteger(maxPlayers) || maxPlayers < 2 || maxPlayers > 6
+        !Number.isInteger(maxPlayers) || maxPlayers < 2 || maxPlayers > 6 ||
+        ![200000, 250000, 300000].includes(startMoney) ||
+        ![15, 30, 45].includes(turnSeconds)
       ) {
         throw new RequestError("Nama, bidak, atau jumlah pemain tidak valid.");
       }
+      if (profileId) await requireProfile(body);
 
       const playerId = crypto.randomUUID();
       const token = randomToken();
@@ -338,6 +744,11 @@ const handleRequest = async (body: Record<string, unknown>) => {
           p_name: name,
           p_piece: piece,
           p_max_players: maxPlayers,
+          p_profile_id: profileId,
+          p_room_type: roomType,
+          p_map_id: mapId,
+          p_start_money: startMoney,
+          p_turn_seconds: turnSeconds,
         });
         if (!error) {
           roomCreated = true;
@@ -366,6 +777,8 @@ const handleRequest = async (body: Record<string, unknown>) => {
       ) {
         throw new RequestError("Kode room, nama, atau bidak tidak valid.");
       }
+      const profileId = typeof body.profileId === "string" ? body.profileId : null;
+      if (profileId) await requireProfile(body);
       const playerId = crypto.randomUUID();
       const token = randomToken();
       const { data: joined, error } = await db.rpc("join_monopoly_room", {
@@ -374,6 +787,7 @@ const handleRequest = async (body: Record<string, unknown>) => {
         p_token_hash: await hashToken(token),
         p_name: name,
         p_piece: piece,
+        p_profile_id: profileId,
       });
       if (error) throwDatabaseError(error);
       if (!joined?.room_id) {
@@ -427,11 +841,86 @@ const handleRequest = async (body: Record<string, unknown>) => {
         playerSetups: players.map((candidate: RoomPlayer) => ({
           name: candidate.name,
           piece: candidate.piece,
-          isAI: false,
+          isAI: candidate.is_bot,
+          difficulty: candidate.difficulty === "Mudah"
+            ? "easy"
+            : candidate.difficulty === "Sulit"
+            ? "hard"
+            : "medium",
         })),
+        settings: {
+          map: room.map_id,
+          startMoney: room.start_money,
+          turnSeconds: room.turn_seconds,
+          speed: "normal",
+        },
       });
       await commitState(room.id, room.version, gameState, true);
+      await db.from("monopoly_matchmaking_queue").delete().eq("room_id", room.id);
       return roomSnapshot(room.id);
+    }
+
+    case "add_bot": {
+      const { player, room } = await requirePlayer(body);
+      if (player.id !== room.host_player_id) {
+        throw new RequestError("Hanya host yang dapat menambahkan BOT.", 403);
+      }
+      if (room.started) throw new RequestError("Permainan sudah dimulai.");
+      const seatIndex = Number(body.slot) - 1;
+      const players = await getPlayers(room.id);
+      if (
+        !Number.isInteger(seatIndex) || seatIndex < 0 ||
+        seatIndex >= room.max_players ||
+        players.some((candidate) => candidate.seat_index === seatIndex)
+      ) {
+        throw new RequestError("Slot BOT tidak tersedia.");
+      }
+
+      const difficulty = body.difficulty === "Mudah" || body.difficulty === "Sulit"
+        ? body.difficulty
+        : "Sedang";
+      const unusedPiece = [...PIECES].find((piece) =>
+        !players.some((candidate) => candidate.piece === piece)
+      );
+      if (!unusedPiece) throw new RequestError("Tidak ada bidak BOT yang tersedia.");
+      const botId = crypto.randomUUID();
+      const { error } = await db.rpc("add_monopoly_room_bot", {
+        p_room_id: room.id,
+        p_host_id: player.id,
+        p_bot_id: botId,
+        p_token_hash: await hashToken(randomToken()),
+        p_name: `BOT ${players.filter((candidate) => candidate.is_bot).length + 1}`,
+        p_piece: unusedPiece,
+        p_difficulty: difficulty,
+        p_seat_index: seatIndex,
+      });
+      if (error) throwDatabaseError(error);
+      await publishChange(room.id, room.version + 1);
+      return roomSnapshot(room.id);
+    }
+
+    case "remove_player": {
+      const { player, room } = await requirePlayer(body);
+      if (player.id !== room.host_player_id) {
+        throw new RequestError("Hanya host yang dapat mengeluarkan pemain.", 403);
+      }
+      if (room.started) throw new RequestError("Permainan sudah dimulai.");
+      const seatIndex = Number(body.slot) - 1;
+      const target = (await getPlayers(room.id)).find((candidate) =>
+        candidate.seat_index === seatIndex
+      );
+      if (!target || target.id === room.host_player_id) {
+        throw new RequestError("Pemain pada slot tersebut tidak dapat dikeluarkan.");
+      }
+      const { data: removed, error } = await db.rpc(
+        "remove_monopoly_room_player",
+        { p_room_id: room.id, p_player_id: target.id },
+      );
+      if (error) throwDatabaseError(error);
+      if (!removed) throw new RequestError("Pemain tidak dapat dikeluarkan.");
+      const snapshot = await roomSnapshot(room.id);
+      await publishChange(room.id, snapshot.version);
+      return snapshot;
     }
 
     case "action": {

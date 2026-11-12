@@ -51,7 +51,7 @@ const GoCorner = ({ style }) => {
           {/* Kumpul bonus */}
           <div className="go-collect">
             <span className="go-collect-label">KUMPUL</span>
-            <span className="go-collect-amount">${fmt(RULES.PASS_GO_REWARD)}</span>
+            <span className="go-collect-amount">Rp {fmt(RULES.PASS_GO_REWARD)}</span>
             <span className="go-collect-sub">saat melewati</span>
           </div>
 
@@ -153,7 +153,7 @@ const FreeParkingCorner = ({ style, freeParkingPool }) => {
           {freeParkingPool > 0 ? (
             <div className="parking-pool">
               <span className="parking-pool-label">pool</span>
-              <span className="parking-pool-amount">${fmt(freeParkingPool)}</span>
+              <span className="parking-pool-amount">Rp {fmt(freeParkingPool)}</span>
             </div>
           ) : (
             <div className="parking-empty">gratis!</div>

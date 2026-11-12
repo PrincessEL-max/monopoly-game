@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Millionaire Indonesia</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/ui.css">
+</head>
+<body>
+<div id="rot"><div>📱↻<br>Putar perangkat ke mode landscape</div></div>
+<div id="fit"><div class="stage">
+
+  <div class="abs logo"><b>MILLIONAIRE</b><i>INDONESIA</i></div>
+  <div class="abs babak"><div><small>BABAK</small><b id="babak">3</b></div></div>
+  <button class="abs spr gset" id="bSet" style="left:5.51px;top:4.9px;width:72.88px;height:75.33px" aria-label="Pengaturan"><img alt="" draggable="false" src="assets/ui/btn_pengaturan.png"></button>
+
+  <!-- AREA PETA: letakkan canvas / elemen peta papan kamu di dalam #map-area (hapus teks placeholder) -->
+  <div class="abs holder" id="map-area">Area peta papan permainan<br>(belum dibuat)</div>
+
+  <div class="abs dk b"></div>
+  <div class="abs dk a"><i>🧒</i></div>
+  <div class="abs dk c"></div>
+  <div class="abs dk d"><i>🤖</i></div>
+
+  <div class="abs" id="pills"></div>
+
+  <div class="abs res" id="res"></div>
+  <div class="abs tray"><div class="die" id="d1"></div><div class="die" id="d2"></div></div>
+
+  <div class="abs log" id="log"><h3>Log Permainan</h3><button class="x" id="xLog" aria-label="Tutup log">✕</button><div class="lb" id="lb"></div></div>
+  <button class="abs logbtn" id="bLog" aria-label="Buka log">📜</button>
+
+  <div class="abs ctl" style="left:490.56px;top:302.55px;width:533.44px;height:273.76px"><img class="bs" alt="" draggable="false" src="assets/ui/ctl_base.png"><button class="spr bRoll" id="bRoll" style="left:292.13px;top:11.02px;width:239.46px;height:246.81px" aria-label="Kocok dadu"><img alt="" draggable="false" src="assets/ui/btn_kocok.png"></button><button class="spr bKartu" id="bKartu" style="left:53.89px;top:127.39px;width:115.14px;height:120.04px" aria-label="Kartu"><img alt="" draggable="false" src="assets/ui/btn_kartu.png"><span class="cnt" id="cc">3</span></button><button class="spr bAset" id="bAset" style="left:178.83px;top:126.16px;width:112.69px;height:124.33px" aria-label="Aset saya"><img alt="" draggable="false" src="assets/ui/btn_aset.png"></button></div>
+
+  <div class="ov" id="as"><div class="aswrap">
+    <img class="asfr" alt="" draggable="false" src="assets/ui/aset_frame.png" style="left:143px;top:42px;width:744px;height:480px">
+    <div class="astx" id="asM"></div><div class="astx" id="asN"></div><div class="astx" id="asV"></div>
+    <button class="asx" id="asX" aria-label="Tutup (kembali ke peta)"></button>
+    <div class="asc" id="asC"></div>
+  </div></div>
+  <div class="ov cv" id="cv"><div class="cbox"><div class="ccap" id="ccap"></div><div class="cardwrap" id="cw"></div><div class="cbtns" id="cb"></div></div></div>
+  <div class="ov" id="ov"><div class="md"><h2 id="mt"></h2><button class="x" id="xMd" aria-label="Tutup">✕</button><div class="mb" id="mb"></div></div></div>
+  <div class="astoast" id="toast"></div>
+</div></div>
+
+
+<!-- 1) UI (tanpa logika game)  2) data papan & kartu  3) logika game — ganti game-demo.js dengan game kamu -->
+<script src="js/ui.js"></script>
+<script src="js/data.js"></script>
+<script src="js/game-demo.js"></script>
+</body>
+</html>

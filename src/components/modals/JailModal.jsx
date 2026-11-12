@@ -50,7 +50,7 @@ export default function JailModal({ game }) {
           {lastChance && (
             <p className="modal-note">
               Ini percobaan terakhir — jika gagal double kamu wajib membayar
-              denda <strong>${fmt(RULES.JAIL_FINE)}</strong>.
+              denda <strong>Rp {fmt(RULES.JAIL_FINE)}</strong>.
             </p>
           )}
 
@@ -63,7 +63,7 @@ export default function JailModal({ game }) {
               disabled={!canPay}
               onClick={payJailFine}
             >
-              Bayar Denda ${fmt(RULES.JAIL_FINE)}
+              Bayar Denda Rp {fmt(RULES.JAIL_FINE)}
             </button>
             {freeSource && (
               <button

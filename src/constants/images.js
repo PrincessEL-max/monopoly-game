@@ -39,6 +39,12 @@ export const LANDMARK_IMAGES = {
   London:            `${BASE}/Inggris.jpeg`,
   amsterdam:         `${BASE}/Prancis.jpeg`,
   berlin:            `${BASE}/Belanda.jpeg`,
+  Perancis:          `${BASE}/Prancis.jpeg`,
+  Belanda:           `${BASE}/Belanda.jpeg`,
+  Brazilia:          `${BASE}/Brazilia.jpeg`,
+  'Amerika Serikat': `${BASE}/Amerika.jpeg`,
+  afrika:            `${BASE}/Mesir.jpeg`,
+  Australia:        `${BASE}/Australia.jpeg`,
 
   // ── KOMPLEX G — Amerika ───────────────────────────────────
   rio_de_janeiro:    `${BASE}/Canada.jpeg`,
@@ -54,6 +60,9 @@ export const LANDMARK_IMAGES = {
   changi_airport:    `${BASE}/Tokyo.jpeg`,
   heathrow_airport:  `${BASE}/London.jpeg`,
   jfk_airport:       `${BASE}/Pelabuhan.jpeg`,
+  tokyo_bus_terminal: `${BASE}/Tokyo.jpeg`,
+  london_station:     `${BASE}/London.jpeg`,
+  sydney_port:        `${BASE}/Pelabuhan.jpeg`,
 
   // ── UTILITAS ──────────────────────────────────────────────
   pln:               `${BASE}/Listrik.jpeg`,
@@ -73,8 +82,8 @@ export const LANDMARK_IMAGES = {
   logo_monopoly:     `${BASE}/logo-monopoly.png`,  // logo M.O.N.O.P.O.L.Y
 
   // ── KARTU ─────────────────────────────────────────────────
-  card_chance_back:  `${BASE}/Kesempatan.jpeg`,
-  card_chest_back:   `${BASE}/Dana-Umum.jpeg`,
+  card_chance_back:  '/millionaire-game/assets/cards/back_ch.webp',
+  card_chest_back:   '/millionaire-game/assets/cards/back_cc.webp',
 
   // ── UANG ──────────────────────────────────────────────────
   money_500:         `${BASE}/Start.jpeg`,

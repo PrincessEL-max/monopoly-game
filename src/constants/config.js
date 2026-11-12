@@ -63,7 +63,7 @@ export const COLORS = {
 // ─── ATURAN GAME ─────────────────────────────────────────────
 export const RULES = {
   STARTING_MONEY: 200000,     // uang awal tiap pemain
-  PASS_GO_REWARD: 25000,      // bonus lewat START
+  PASS_GO_REWARD: 20000,      // bonus lewat MULAI
   JAIL_FINE: 10000,           // denda bebas penjara
   JAIL_TURNS_MAX: 3,          // maks giliran di penjara sebelum harus bayar
   DOUBLES_JAIL_COUNT: 3,      // double 3x berturut → masuk penjara

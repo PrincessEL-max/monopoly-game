@@ -10,14 +10,17 @@
 
 import React from 'react';
 import { useLandingDelay } from '../../hooks/useLandingDelay';
+import { LANDMARK_IMAGES } from '../../constants/images';
 
 const DECKS = {
-  chance: { label: 'Kesempatan', emblem: '❓', color: '#e0801b' },
-  chest:  { label: 'Dana Umum',  emblem: '🎁', color: '#2f7d8a' },
+  chance: { label: 'Kesempatan', color: '#e0801b', back: LANDMARK_IMAGES.card_chance_back },
+  chest:  { label: 'Dana Umum', color: '#2f7d8a', back: LANDMARK_IMAGES.card_chest_back },
 };
 
 export default function CardModal({ game }) {
-  const { waitingFor, landResult, activeCard, currentPlayer, drawCard, applyCard } = game;
+  const {
+    waitingFor, landResult, activeCard, currentPlayer, drawCard, applyCard, usePowerUp,
+  } = game;
 
   const active = waitingFor === 'DRAW_CARD' || waitingFor === 'APPLY_CARD';
   const isHuman = !currentPlayer?.isAI;
@@ -32,11 +35,15 @@ export default function CardModal({ game }) {
 
   // Tentukan deck (chance / chest) dari kartu aktif atau dari petak
   const isChance = activeCard
-    ? String(activeCard.id).startsWith('c')
+    ? String(activeCard.id).startsWith('kes_') || String(activeCard.id).startsWith('khusus_')
     : landResult?.square?.type === 'chance';
   const deck = isChance ? DECKS.chance : DECKS.chest;
 
   const revealed = waitingFor === 'APPLY_CARD' && !!activeCard;
+  const insuranceCard = currentPlayer.powerUps?.find(
+    (card) => card.action === 'power_insurance'
+  );
+  const insuranceCanCancel = ['pay', 'repairs'].includes(activeCard?.type);
 
   return (
     <div className="modal-overlay">
@@ -53,17 +60,16 @@ export default function CardModal({ game }) {
             >
               {/* Sisi belakang (tertutup) */}
               <div className="flip-face flip-back" style={{ '--deck': deck.color }}>
-                <span className="flip-back-emblem">{deck.emblem}</span>
-                <span className="flip-back-label">{deck.label}</span>
+                <img src={deck.back} alt="" draggable={false} />
               </div>
 
               {/* Sisi depan (terbuka) */}
               <div className="flip-face flip-front" style={{ '--deck': deck.color }}>
-                <div className="flip-front-head">{deck.label}</div>
-                <div className="flip-front-emblem">{deck.emblem}</div>
-                <p className="flip-front-text">
-                  {activeCard ? activeCard.text : ''}
-                </p>
+                <img
+                  src={`/millionaire-game/assets/cards/${activeCard?.id}.webp`}
+                  alt={activeCard?.text || deck.label}
+                  draggable={false}
+                />
               </div>
             </div>
           </div>
@@ -75,9 +81,17 @@ export default function CardModal({ game }) {
 
         <div className="modal-foot">
           {revealed ? (
-            <button className="btn btn-gold" onClick={applyCard}>
-              Terapkan Kartu
-            </button>
+            <>
+              {insuranceCanCancel && insuranceCard && (
+                <button
+                  className="btn btn-ghost"
+                  onClick={() => usePowerUp({ cardId: insuranceCard.id })}
+                >
+                  Aktifkan Asuransi
+                </button>
+              )}
+              <button className="btn btn-gold" onClick={applyCard}>Terapkan Kartu</button>
+            </>
           ) : (
             <button className="btn btn-gold" onClick={drawCard}>
               Ambil Kartu
