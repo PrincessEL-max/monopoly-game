@@ -8,6 +8,7 @@
 .board-outer {
   position: relative;
   display: inline-flex;
+  box-sizing: border-box;
   padding: 16px;
   background: linear-gradient(
     145deg,
@@ -41,6 +42,16 @@
   position: relative;
   width: 100%;
   aspect-ratio: 1;
+  cursor: default;
+  touch-action: none;
+  overscroll-behavior: contain;
+}
+
+.board-camera {
+  position: absolute;
+  inset: 0;
+  transform-origin: top left;
+  pointer-events: none;
 }
 
 .board-outer {
@@ -48,6 +59,9 @@
   top: 0;
   left: 0;
   transform-origin: top left;
+  pointer-events: auto;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 @media (orientation: landscape) {
@@ -76,9 +90,9 @@
 
 .board-grid {
   display: grid;
-  /* Col 1 & 11 = petak sudut 100px; col 2–10 = petak biasa (~62.2px) */
-  grid-template-columns: 100px repeat(9, 1fr) 100px;
-  grid-template-rows:    100px repeat(9, 1fr) 100px;
+  /* Inline grid tracks match the selected map's active side length. */
+  grid-template-columns: 100px repeat(9, minmax(0, 1fr)) 100px;
+  grid-template-rows:    100px repeat(9, minmax(0, 1fr)) 100px;
   width:    760px;
   height:   760px;
   position: relative;           /* konteks untuk .pieces-layer */
@@ -90,8 +104,8 @@
 /* ── 3. CENTER AREA (row 2-10 / col 2-10) ───────────────────── */
 
 .board-center-area {
-  grid-row:    2 / 11;          /* span baris 2 s/d 10 */
-  grid-column: 2 / 11;          /* span kolom 2 s/d 10 */
+  grid-row:    2 / 11;
+  grid-column: 2 / 11;
   position: relative;
   overflow: hidden;
 }

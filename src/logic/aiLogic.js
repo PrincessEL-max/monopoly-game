@@ -7,7 +7,7 @@
 //   'hard'   → kalkulasi ROI, monopoli, blokir lawan
 // ============================================================
 
-import { SQUARES, getKomplexSquares, ownsFullKomplex } from '../constants/squares';
+import { getKomplexSquares, getSquaresForMap, ownsFullKomplex } from '../constants/squares';
 import { RULES } from '../constants/config';
 import { calcNetWorth } from './rentLogic';
 
@@ -61,10 +61,11 @@ export const aiDecideBuy = (aiPlayer, square, gameState, difficulty = 'medium') 
  */
 const evaluatePurchase = (player, square, gameState, difficulty) => {
   const { owners } = gameState;
+  const squares = getSquaresForMap(gameState.settings?.map);
   let score = 0.5; // base
 
   if (square.type === 'property') {
-    const komplexProps = getKomplexSquares(square.komplex);
+    const komplexProps = getKomplexSquares(square.komplex, squares);
     const owned = komplexProps.filter((s) => owners[s.id] === player.id).length;
     const total = komplexProps.length;
 
@@ -89,14 +90,14 @@ const evaluatePurchase = (player, square, gameState, difficulty) => {
   }
 
   if (square.type === 'airport') {
-    const myAirports = SQUARES.filter(
+    const myAirports = squares.filter(
       (s) => s.type === 'airport' && owners[s.id] === player.id
     ).length;
     score += myAirports * 0.15; // makin banyak bandara makin bagus
   }
 
   if (square.type === 'utility') {
-    const myUtils = SQUARES.filter(
+    const myUtils = squares.filter(
       (s) => s.type === 'utility' && owners[s.id] === player.id
     ).length;
     score += myUtils * 0.25; // dua utilitas = 10× dadu, sangat berharga
@@ -115,18 +116,19 @@ const evaluatePurchase = (player, square, gameState, difficulty) => {
  */
 export const aiDecideBuild = (aiPlayer, gameState, difficulty = 'medium') => {
   const { owners, houses, hotels, housesLeft, hotelsLeft } = gameState;
+  const squares = getSquaresForMap(gameState.settings?.map);
   const buffer = SAFETY_BUFFER[difficulty];
   let budget = aiPlayer.money - buffer;
   if (budget <= 0) return [];
 
   // Kumpulkan semua komplex yang sudah dimonopoli
-  const monopolies = getMyMonopolies(aiPlayer.id, owners);
+  const monopolies = getMyMonopolies(aiPlayer.id, owners, squares);
   if (monopolies.length === 0) return [];
 
   const buildQueue = [];
 
   for (const komplex of monopolies) {
-    const props = getKomplexSquares(komplex);
+    const props = getKomplexSquares(komplex, squares);
 
     // Strategi: bangun merata dulu (monopoly rule: even building)
     // Cari properti dengan rumah paling sedikit
@@ -151,8 +153,8 @@ export const aiDecideBuild = (aiPlayer, gameState, difficulty = 'medium') => {
   // Hard: prioritaskan komplex dengan sewa tinggi (orange, red, green)
   if (difficulty === 'hard') {
     buildQueue.sort((a, b) => {
-      const sqA = SQUARES.find((s) => s.id === a.squareId);
-      const sqB = SQUARES.find((s) => s.id === b.squareId);
+      const sqA = squares.find((s) => s.id === a.squareId);
+      const sqB = squares.find((s) => s.id === b.squareId);
       return (sqB?.rent?.[5] ?? 0) - (sqA?.rent?.[5] ?? 0);
     });
   }
@@ -170,7 +172,7 @@ export const aiDecideBuild = (aiPlayer, gameState, difficulty = 'medium') => {
  */
 export const aiDecideMortgage = (aiPlayer, amountNeeded, gameState) => {
   const { owners, houses, hotels } = gameState;
-  const myProps = SQUARES.filter(
+  const myProps = getSquaresForMap(gameState.settings?.map).filter(
     (s) => owners[s.id] === aiPlayer.id &&
            !(aiPlayer.mortgaged || []).includes(s.id) &&
            (houses[s.id] || 0) === 0 &&
@@ -253,11 +255,12 @@ export const aiGenerateTrade = (aiPlayer, targetPlayer, gameState, difficulty = 
   if (difficulty !== 'hard') return null;
 
   const { owners } = gameState;
-  const myMonopolies = getMyMonopolies(aiPlayer.id, owners);
+  const squares = getSquaresForMap(gameState.settings?.map);
+  const myMonopolies = getMyMonopolies(aiPlayer.id, owners, squares);
 
   // Cari properti target yang dibutuhkan AI untuk monopoli
-  for (const komplex of getPendingMonopolies(aiPlayer.id, owners)) {
-    const props = getKomplexSquares(komplex);
+  for (const komplex of getPendingMonopolies(aiPlayer.id, owners, squares)) {
+    const props = getKomplexSquares(komplex, squares);
     const needed = props.filter((s) => owners[s.id] === targetPlayer.id);
 
     if (needed.length === 0) continue;
@@ -293,7 +296,8 @@ export const aiDecideJail = (aiPlayer, gameState, difficulty = 'medium') => {
   if (difficulty === 'easy') return Math.random() > 0.5;
 
   const { owners } = gameState;
-  const monopolies = getMyMonopolies(aiPlayer.id, owners);
+  const squares = getSquaresForMap(gameState.settings?.map);
+  const monopolies = getMyMonopolies(aiPlayer.id, owners, squares);
 
   if (difficulty === 'hard' && monopolies.length >= 2) {
     // Tetap di penjara — lawan bayar sewa, AI aman
@@ -309,16 +313,16 @@ export const aiDecideJail = (aiPlayer, gameState, difficulty = 'medium') => {
 // ─────────────────────────────────────────────────────────────
 
 /** Daftar komplex yang sudah dimonopoli AI */
-const getMyMonopolies = (playerId, owners) => {
+const getMyMonopolies = (playerId, owners, squares) => {
   const komplexList = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-  return komplexList.filter((k) => ownsFullKomplex(k, playerId, owners));
+  return komplexList.filter((k) => ownsFullKomplex(k, playerId, owners, squares));
 };
 
 /** Komplex yang hampir dimonopoli (kurang 1 properti) */
-const getPendingMonopolies = (playerId, owners) => {
+const getPendingMonopolies = (playerId, owners, squares) => {
   const komplexList = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
   return komplexList.filter((k) => {
-    const props = getKomplexSquares(k);
+    const props = getKomplexSquares(k, squares);
     const owned = props.filter((s) => owners[s.id] === playerId).length;
     return owned === props.length - 1;
   });
@@ -327,17 +331,18 @@ const getPendingMonopolies = (playerId, owners) => {
 /** Hitung total nilai properti + uang dalam trade */
 const calcTradeValue = (propIds, money, player, gameState) => {
   const { owners, houses, hotels } = gameState;
+  const squares = getSquaresForMap(gameState.settings?.map);
   let value = money || 0;
 
   for (const id of (propIds || [])) {
-    const sq = SQUARES.find((s) => s.id === id);
+    const sq = squares.find((s) => s.id === id);
     if (!sq) continue;
     value += sq.price;
     value += (houses[id] || 0) * (sq.houseCost || 0);
     value += (hotels[id] || 0) * (sq.hotelCost || 0);
 
     // Bonus jika melengkapi monopoli
-    const komplexProps = getKomplexSquares(sq.komplex);
+    const komplexProps = getKomplexSquares(sq.komplex, squares);
     const owned = komplexProps.filter((s) => owners[s.id] === player.id).length;
     if (owned === komplexProps.length - 1) {
       value += sq.price * 1.5; // bonus monopoli

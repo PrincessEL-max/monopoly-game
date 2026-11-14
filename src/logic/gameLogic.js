@@ -4,10 +4,15 @@
 // Kembalikan patch object → merge di useGameState
 // ============================================================
 
-import { SQUARES, getKomplexSquares } from '../constants/squares.js';
-import { RULES, SPECIAL_POSITIONS, AIRPORT_POSITIONS, UTILITY_POSITIONS } from '../constants/config.js';
+import {
+  COMPACT_MAP_ID, getKomplexSquares, getSquaresForMap,
+} from '../constants/squares.js';
+import { RULES, SPECIAL_POSITIONS } from '../constants/config.js';
 import { shuffleDeck, CHANCE_CARDS, COMMUNITY_CHEST_CARDS } from '../constants/cards.js';
 import { calculateRent } from './rentLogic.js';
+import { calcNewPosition, findNearest, positionComesAfter } from './routeLogic.js';
+
+export { calcNewPosition, findNearest, positionComesAfter };
 
 // ─────────────────────────────────────────────────────────────
 // DICE
@@ -27,35 +32,6 @@ export const rollDice = (fixedDie = null) => {
 // ─────────────────────────────────────────────────────────────
 // MOVEMENT
 // ─────────────────────────────────────────────────────────────
-
-/**
- * Hitung posisi baru dari posisi sekarang + steps
- * Return { newPos, passedGo }
- */
-export const calcNewPosition = (currentPos, steps) => {
-  const raw = currentPos + steps;
-  const newPos = ((raw % 40) + 40) % 40; // handle negatif
-  const passedGo = raw >= 40;
-  return { newPos, passedGo };
-};
-
-/**
- * Cari bandara/utilitas terdekat dari posisi sekarang
- */
-export const findNearest = (currentPos, type) => {
-  const positions = type === 'airport' ? AIRPORT_POSITIONS : UTILITY_POSITIONS;
-  let nearest = positions[0];
-  let minDist = Infinity;
-
-  for (const pos of positions) {
-    const dist = pos > currentPos ? pos - currentPos : 40 - currentPos + pos;
-    if (dist < minDist) {
-      minDist = dist;
-      nearest = pos;
-    }
-  }
-  return nearest;
-};
 
 // ─────────────────────────────────────────────────────────────
 // JAIL
@@ -245,10 +221,11 @@ export const buyProperty = (player, square, gameState) => {
  * Return { playerPatch, mortgagedPatch } atau null
  */
 export const mortgageProperty = (player, squareId, gameState) => {
-  const square = SQUARES.find((s) => s.id === squareId);
+  const squares = getSquaresForMap(gameState.settings?.map);
+  const square = squares.find((s) => s.id === squareId);
   if (!square || gameState.owners[squareId] !== player.id) return null;
   if ((player.mortgaged || []).includes(squareId)) return null;
-  if (square.komplex && getKomplexSquares(square.komplex).some(
+  if (square.komplex && getKomplexSquares(square.komplex, squares).some(
     (s) => (gameState.houses[s.id] || 0) > 0 || (gameState.hotels[s.id] || 0) > 0
   )) return null;
 
@@ -264,8 +241,8 @@ export const mortgageProperty = (player, squareId, gameState) => {
 /**
  * Tebus gadai (unmortgage)
  */
-export const unmortgageProperty = (player, squareId) => {
-  const square = SQUARES.find((s) => s.id === squareId);
+export const unmortgageProperty = (player, squareId, gameState) => {
+  const square = getSquaresForMap(gameState.settings?.map).find((s) => s.id === squareId);
   if (!square || !(player.mortgaged || []).includes(squareId)) return null;
 
   const cost = Math.floor(square.price * RULES.UNMORTGAGE_RATE);
@@ -285,7 +262,8 @@ export const unmortgageProperty = (player, squareId) => {
  */
 export const buyHouse = (player, squareId, gameState, { free = false } = {}) => {
   const { owners, houses, hotels, housesLeft, hotelsLeft } = gameState;
-  const square = SQUARES.find((s) => s.id === squareId);
+  const squares = getSquaresForMap(gameState.settings?.map);
+  const square = squares.find((s) => s.id === squareId);
 
   if (!square || owners[squareId] !== player.id) return null;
   if (hotels[squareId] > 0) return null; // sudah ada hotel
@@ -306,7 +284,8 @@ export const buyHouse = (player, squareId, gameState, { free = false } = {}) => 
  */
 export const buyHotel = (player, squareId, gameState) => {
   const { owners, houses, hotels, housesLeft, hotelsLeft } = gameState;
-  const square = SQUARES.find((s) => s.id === squareId);
+  const squares = getSquaresForMap(gameState.settings?.map);
+  const square = squares.find((s) => s.id === squareId);
 
   if (!square || owners[squareId] !== player.id) return null;
   if ((houses[squareId] || 0) < RULES.MIN_HOUSES_FOR_HOTEL) return null;
@@ -330,7 +309,8 @@ export const buyHotel = (player, squareId, gameState) => {
  */
 export const sellHouse = (player, squareId, gameState) => {
   const { owners, houses, hotels, housesLeft } = gameState;
-  const square = SQUARES.find((s) => s.id === squareId);
+  const squares = getSquaresForMap(gameState.settings?.map);
+  const square = squares.find((s) => s.id === squareId);
   if (!square || owners[squareId] !== player.id) return null;
   if ((hotels[squareId] || 0) >= 1) return null; // ada hotel — pakai sellHotel
   const count = houses[squareId] || 0;
@@ -338,7 +318,7 @@ export const sellHouse = (player, squareId, gameState) => {
 
   // Jual merata: petak ini harus punya rumah terbanyak dalam komplex
   const maxInKomplex = Math.max(
-    ...getKomplexSquares(square.komplex).map((s) => houses[s.id] || 0)
+    ...getKomplexSquares(square.komplex, squares).map((s) => houses[s.id] || 0)
   );
   if (count !== maxInKomplex) return null;
 
@@ -357,7 +337,7 @@ export const sellHouse = (player, squareId, gameState) => {
  */
 export const sellHotel = (player, squareId, gameState) => {
   const { owners, hotels, housesLeft, hotelsLeft } = gameState;
-  const square = SQUARES.find((s) => s.id === squareId);
+  const square = getSquaresForMap(gameState.settings?.map).find((s) => s.id === squareId);
   if (!square || owners[squareId] !== player.id) return null;
   if ((hotels[squareId] || 0) < 1) return null;
   if (housesLeft < RULES.MIN_HOUSES_FOR_HOTEL) return null; // tak cukup rumah utk dipecah
@@ -398,7 +378,7 @@ export const liquidatePlayer = (state, bankruptId, creditorId) => {
   const newHouses = { ...houses };
   const newHotels = { ...hotels };
 
-  for (const sq of SQUARES) {
+  for (const sq of getSquaresForMap(state.settings?.map)) {
     if (owners[sq.id] !== bankruptId) continue;
     newHousesLeft += houses[sq.id] || 0;
     newHotelsLeft += hotels[sq.id] || 0;
@@ -475,9 +455,9 @@ export const startAuction = (players, currentPlayerIndex, squareId) => {
  * berdasarkan kondisi terkini. Dipanggil setelah perubahan besar
  * (akhir giliran). Mengembalikan array players baru (immutable).
  */
-export const refreshStats = (players, owners) => {
+export const refreshStats = (players, owners, map = 'nusantara') => {
   return players.map((p) => {
-    const propCount = SQUARES.filter((s) => owners[s.id] === p.id).length;
+    const propCount = getSquaresForMap(map).filter((s) => owners[s.id] === p.id).length;
     const prev = p.stats || { peakMoney: p.money, maxProps: 0, rentPaid: 0, rentEarned: 0 };
     return {
       ...p,
@@ -538,7 +518,9 @@ export const createInitialState = (playerSetups, settings = {}) => {
     ? settings.startMoney
     : RULES.STARTING_MONEY;
   const normalizedSettings = {
-    map: ['nusantara', 'dunia', 'kota'].includes(settings.map) ? settings.map : 'nusantara',
+    map: ['nusantara', 'dunia', 'kota', COMPACT_MAP_ID].includes(settings.map)
+      ? settings.map
+      : 'nusantara',
     startMoney: startingMoney,
     speed: settings.speed === 'cepat' ? 'cepat' : 'normal',
     turnSeconds: [15, 30, 45].includes(settings.turnSeconds) ? settings.turnSeconds : null,

@@ -11,7 +11,7 @@ import {
 import { applyCard, drawFromDeck } from './cardLogic.js';
 import { CHANCE_CARDS, COMMUNITY_CHEST_CARDS } from '../constants/cards.js';
 import { RULES } from '../constants/config.js';
-import { SQUARES } from '../constants/squares.js';
+import { getSquaresForMap } from '../constants/squares.js';
 
 export const ACTIONS = {
   START_GAME:          'START_GAME',
@@ -184,7 +184,7 @@ const continueCardPayments = (state, payments, returnPlayerId) => {
  * uangnya. Giliran pemain yang sedang berjalan dilanjutkan (akhiri giliran).
  */
 const finalizeAuction = (state, winnerId, amount) => {
-  const sq = SQUARES.find((s) => s.id === state.auction.squareId);
+  const sq = getSquaresForMap(state.settings?.map).find((s) => s.id === state.auction.squareId);
   if (winnerId == null) {
     return {
       ...state, auction: null, waitingFor: null, canRoll: false, landResult: null,
@@ -292,7 +292,7 @@ const reduceGame = (state, action) => {
       }
 
       // Gerak normal
-      const { newPos, passedGo } = calcNewPosition(player.position, total);
+      const { newPos, passedGo } = calcNewPosition(player.position, total, state.settings?.map);
       const goBonus = passedGo ? RULES.PASS_GO_REWARD : 0;
 
       let updatedPlayer = {
@@ -310,7 +310,8 @@ const reduceGame = (state, action) => {
       );
 
       // Proses landing
-      const square = SQUARES.find((s) => s.id === newPos);
+      const square = getSquaresForMap(state.settings?.map).find((s) => s.id === newPos);
+      if (!square) return state;
       const landResult = processLanding(updatedPlayer, square, {
         ...state, players: newPlayers,
       });
@@ -381,7 +382,7 @@ const reduceGame = (state, action) => {
     case ACTIONS.BUY_PROPERTY: {
       const { currentPlayerIndex, players, owners } = state;
       const player = players[currentPlayerIndex];
-      const square = SQUARES.find((s) => s.id === action.squareId);
+      const square = getSquaresForMap(state.settings?.map).find((s) => s.id === action.squareId);
       if (!square) return state;
 
       const effects = { ...EMPTY_POWER_UP_EFFECTS, ...player.powerUpEffects };
@@ -547,7 +548,8 @@ const reduceGame = (state, action) => {
 
       if (patch.needsLanding) {
         const movedPlayer = newState.players[currentPlayerIndex];
-        const square = SQUARES.find((s) => s.id === movedPlayer.position);
+        const square = getSquaresForMap(state.settings?.map).find((s) => s.id === movedPlayer.position);
+        if (!square) return state;
         let landResult = processLanding(movedPlayer, square, newState);
 
         if (landResult.type === 'go_to_jail') {
@@ -654,7 +656,7 @@ const reduceGame = (state, action) => {
           updatedEffects = { ...effects, bonusTurns: effects.bonusTurns + 1 };
           break;
         case 'power_ticket_station': {
-          const square = SQUARES.find((candidate) =>
+          const square = getSquaresForMap(state.settings?.map).find((candidate) =>
             candidate.id === action.squareId &&
             (candidate.type === 'airport' || candidate.type === 'utility')
           );
@@ -742,7 +744,7 @@ const reduceGame = (state, action) => {
       const result = buyHouse(player, action.squareId, state, { free: freeHouse });
       if (!result) return state;
 
-      const square = SQUARES.find((s) => s.id === action.squareId);
+      const square = getSquaresForMap(state.settings?.map).find((s) => s.id === action.squareId);
       return {
         ...state,
         players: players.map((p, i) => i === currentPlayerIndex
@@ -768,7 +770,7 @@ const reduceGame = (state, action) => {
       const result = buyHotel(player, action.squareId, state);
       if (!result) return state;
 
-      const square = SQUARES.find((s) => s.id === action.squareId);
+      const square = getSquaresForMap(state.settings?.map).find((s) => s.id === action.squareId);
       return {
         ...state,
         players: players.map((p, i) => i === currentPlayerIndex ? { ...p, ...result.playerPatch } : p),
@@ -787,7 +789,7 @@ const reduceGame = (state, action) => {
       const result = sellHouse(player, action.squareId, state);
       if (!result) return state;
 
-      const square = SQUARES.find((s) => s.id === action.squareId);
+      const square = getSquaresForMap(state.settings?.map).find((s) => s.id === action.squareId);
       return {
         ...state,
         players: players.map((p, i) => i === currentPlayerIndex ? { ...p, ...result.playerPatch } : p),
@@ -804,7 +806,7 @@ const reduceGame = (state, action) => {
       const result = sellHotel(player, action.squareId, state);
       if (!result) return state;
 
-      const square = SQUARES.find((s) => s.id === action.squareId);
+      const square = getSquaresForMap(state.settings?.map).find((s) => s.id === action.squareId);
       return {
         ...state,
         players: players.map((p, i) => i === currentPlayerIndex ? { ...p, ...result.playerPatch } : p),
@@ -823,7 +825,7 @@ const reduceGame = (state, action) => {
       const result = mortgageProperty(player, action.squareId, state);
       if (!result) return state;
 
-      const square = SQUARES.find((s) => s.id === action.squareId);
+      const square = getSquaresForMap(state.settings?.map).find((s) => s.id === action.squareId);
       return {
         ...state,
         players: players.map((p, i) => i === currentPlayerIndex ? { ...p, ...result.playerPatch } : p),
@@ -835,10 +837,10 @@ const reduceGame = (state, action) => {
     case ACTIONS.UNMORTGAGE: {
       const { currentPlayerIndex, players } = state;
       const player = players[currentPlayerIndex];
-      const result = unmortgageProperty(player, action.squareId);
+      const result = unmortgageProperty(player, action.squareId, state);
       if (!result) return state;
 
-      const square = SQUARES.find((s) => s.id === action.squareId);
+      const square = getSquaresForMap(state.settings?.map).find((s) => s.id === action.squareId);
       return {
         ...state,
         players: players.map((p, i) => i === currentPlayerIndex ? { ...p, ...result.playerPatch } : p),
@@ -1040,7 +1042,7 @@ const reduceGame = (state, action) => {
       const nextIndex = hasBonusTurn
         ? currentPlayerIndex
         : getNextTurn(currentPlayerIndex, players, rolledDouble, wentToJail);
-      const nextPlayers = refreshStats(players, owners).map((player, index) =>
+      const nextPlayers = refreshStats(players, owners, state.settings?.map).map((player, index) =>
         index === currentPlayerIndex && hasBonusTurn
           ? {
             ...player,

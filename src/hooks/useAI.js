@@ -12,7 +12,7 @@ import {
   aiDecideJail, aiEvaluateTrade,
 } from '../logic/aiLogic';
 import { ACTIONS } from '../logic/gameReducer.js';
-import { SQUARES, getKomplexSquares } from '../constants/squares';
+import { getKomplexSquares, getSquaresForMap } from '../constants/squares';
 import { RULES } from '../constants/config';
 
 const AI_DELAY = {
@@ -25,18 +25,19 @@ const findSellable = (player, gs) => {
   const { owners, houses, hotels, housesLeft } = gs;
 
   // Hotel dulu (butuh stok 4 rumah untuk dipecah)
-  for (const sq of SQUARES) {
+  const squares = getSquaresForMap(gs.settings?.map);
+  for (const sq of squares) {
     if (owners[sq.id] !== player.id) continue;
     if ((hotels[sq.id] || 0) >= 1 && housesLeft >= RULES.MIN_HOUSES_FOR_HOTEL) {
       return { id: sq.id, type: 'hotel' };
     }
   }
   // Rumah — jual dari petak dengan rumah terbanyak dalam komplex (jual merata)
-  for (const sq of SQUARES) {
+  for (const sq of squares) {
     if (owners[sq.id] !== player.id) continue;
     const h = houses[sq.id] || 0;
     if (h <= 0) continue;
-    const maxK = Math.max(...getKomplexSquares(sq.komplex).map((s) => houses[s.id] || 0));
+    const maxK = Math.max(...getKomplexSquares(sq.komplex, squares).map((s) => houses[s.id] || 0));
     if (h === maxK) return { id: sq.id, type: 'house' };
   }
   return null;

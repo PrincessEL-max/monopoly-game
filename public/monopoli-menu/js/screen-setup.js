@@ -3,7 +3,7 @@
 const SL=[[25,208],[246,209],[468,207],[688,197]], ST=89, SH=454;
 const CARD=['card1','card2','card3','card2'], COL=['#8a3d00','#0b3a8a','#0d5a14','#4a1b8a'];
 const DIFF=['Mudah','Sedang','Sulit'], DC={Mudah:['#9bea3b','#27a824'],Sedang:['#38b6ff','#1262d8'],Sulit:['#ffb347','#e8590c']};
-const MAPS=[{id:'nusantara',n:'Peta Nusantara',f:'none'},{id:'dunia',n:'Peta Dunia',f:'hue-rotate(150deg) saturate(1.15)'},{id:'kota',n:'Peta Kota',f:'hue-rotate(-55deg) saturate(1.1)'}];
+const MAPS=[{id:'nusantara',n:'Peta Nusantara',f:'none'},{id:'dunia',n:'Peta Dunia',f:'hue-rotate(150deg) saturate(1.15)'},{id:'kota',n:'Peta Kota',f:'hue-rotate(-55deg) saturate(1.1)'},{id:'nusantara-compact',n:'Peta Nusantara Ringkas',f:'hue-rotate(12deg) saturate(.95)'}];
 const setup={slots:[{t:'human'},{t:'bot',d:'Sedang'},null,null], map:0, money:150000, speed:'normal'};
 const MONEYS=[150000,200000,250000,300000,400000,500000];
 function getSetup(){ return { mode:'offline', players:setup.slots.map((p,i)=>p&&{slot:i+1,type:p.t,difficulty:p.d||null}).filter(Boolean),

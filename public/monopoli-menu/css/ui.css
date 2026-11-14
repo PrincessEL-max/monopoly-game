@@ -99,7 +99,7 @@
 .t2.st{-webkit-text-stroke:3px var(--sc,#3a1a00);paint-order:stroke fill}
 .t2 b{font-weight:400;color:#ffd54a}.t2 b.gr{color:#7ddc5a}.t2 b.or{color:#ffb347}
 .ins{position:absolute;border-radius:14px;pointer-events:none;box-shadow:inset 0 0 0 2px #1c0f05,inset 0 4px 10px rgba(0,0,0,.5),0 1px 0 rgba(255,215,140,.28)}
-.qs{position:absolute;width:126px;height:144px;top:338px;box-sizing:border-box;border-radius:13px}
+.qs{position:absolute;width:126px;height:144px;top:320px;box-sizing:border-box;border-radius:13px}
 .qs.gold,.rs.host{border:3px solid #ffd45a;background:linear-gradient(#9a6420,#5e3a12);box-shadow:0 0 16px 5px rgba(255,200,70,.65),inset 0 0 14px rgba(255,225,130,.4)}
 .qs .av{position:absolute;left:50%;top:9px;width:78px;height:78px;margin-left:-39px;border-radius:13px;object-fit:cover}
 .qs .nm{position:absolute;left:0;right:0;top:92px;font:400 14px/16px 'Lilita One',system-ui,sans-serif;color:#fff;text-align:center;text-shadow:0 1px 2px #000}
@@ -113,7 +113,7 @@
 .ch{position:absolute;border:0;cursor:pointer;font:400 17px/1 'Lilita One',system-ui,sans-serif;color:#fff;border-radius:11px;padding:0;text-shadow:0 1px 0 rgba(0,0,0,.45);transition:.12s;background:linear-gradient(#3f78d0,#1f4f9f);box-shadow:0 2px 0 #14336b,inset 0 1px 0 rgba(255,255,255,.35)}
 .ch.gy{background:linear-gradient(#8593ab,#5b667c);box-shadow:0 2px 0 #3a4254,inset 0 1px 0 rgba(255,255,255,.35)}
 .ch.on{background:linear-gradient(#7ee24a,#2f9e1e);box-shadow:0 0 0 2px #d9ffb0,0 0 12px 3px rgba(130,255,70,.8),inset 0 1px 0 rgba(255,255,255,.5)}
-.ch.sg{background:transparent;box-shadow:none;color:#f1dcb4;text-shadow:none;border-radius:9px}
+.ch.sg{background:transparent;box-shadow:none;color:#f1dcb4;text-shadow:none;border-radius:9px;font-size:15px}
 .ch.sg.on{background:linear-gradient(#ffd54a,#f0a500);color:#4a2a00;box-shadow:0 0 0 1px #fff3b0,0 0 10px 2px rgba(255,200,60,.7)}
 .ch:hover{filter:brightness(1.12)}.ch:active{transform:scale(.94)}
 .seg{position:absolute;border-radius:12px;background:#2a1409;box-shadow:inset 0 2px 4px rgba(0,0,0,.6),0 0 0 1px #5a3418;pointer-events:none}

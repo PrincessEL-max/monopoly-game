@@ -2,7 +2,7 @@
 // rentLogic.js — Kalkulasi sewa semua tipe petak
 // ============================================================
 
-import { SQUARES, getKomplexSquares, ownsFullKomplex } from '../constants/squares.js';
+import { getKomplexSquares, getSquaresForMap, ownsFullKomplex } from '../constants/squares.js';
 
 // ─────────────────────────────────────────────────────────────
 // MAIN ENTRY
@@ -56,7 +56,8 @@ const calcPropertyRent = (square, gameState) => {
   }
 
   // Tidak ada rumah — cek monopoli komplex
-  const fullKomplex = ownsFullKomplex(square.komplex, ownerId, owners);
+  const squares = getSquaresForMap(gameState.settings?.map);
+  const fullKomplex = ownsFullKomplex(square.komplex, ownerId, owners, squares);
   const baseRent = square.rent[0];
   return fullKomplex ? baseRent * 2 : baseRent;
 };
@@ -77,7 +78,7 @@ const calcAirportRent = (square, gameState) => {
   const { owners } = gameState;
   const ownerId = owners[square.id];
 
-  const airportSquares = SQUARES.filter((s) => s.type === 'airport');
+  const airportSquares = getSquaresForMap(gameState.settings?.map).filter((s) => s.type === 'airport');
   const ownedCount = airportSquares.filter((s) => owners[s.id] === ownerId).length;
 
   // clamp ke index valid
@@ -101,7 +102,7 @@ const calcUtilityRent = (square, gameState, lander) => {
   const ownerId = owners[square.id];
   const diceTotal = lastRoll?.total || 0;
 
-  const utilitySquares = SQUARES.filter((s) => s.type === 'utility');
+  const utilitySquares = getSquaresForMap(gameState.settings?.map).filter((s) => s.type === 'utility');
   const ownedCount = utilitySquares.filter((s) => owners[s.id] === ownerId).length;
 
   const multiplier = square.rentMultiplier[Math.min(ownedCount - 1, 1)] || 400;
@@ -120,7 +121,8 @@ export const getRentTable = (square, gameState) => {
   if (square.type === 'property') {
     const { owners } = gameState;
     const ownerId = owners[square.id];
-    const fullKomplex = ownerId != null && ownsFullKomplex(square.komplex, ownerId, owners);
+    const squares = getSquaresForMap(gameState.settings?.map);
+    const fullKomplex = ownerId != null && ownsFullKomplex(square.komplex, ownerId, owners, squares);
 
     return [
       { label: 'Sewa dasar',           amount: square.rent[0] },
@@ -185,7 +187,7 @@ export const calcNetWorth = (player, gameState) => {
   const { owners, houses, hotels } = gameState;
   let worth = player.money;
 
-  for (const square of SQUARES) {
+  for (const square of getSquaresForMap(gameState.settings?.map)) {
     if (owners[square.id] !== player.id) continue;
     worth += square.price || 0;
     if (square.houseCost) {

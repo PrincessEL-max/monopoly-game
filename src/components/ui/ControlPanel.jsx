@@ -1,7 +1,7 @@
 // ============================================================
 // ControlPanel.jsx — Panel kanan.
 // Berisi: info giliran, dadu, AREA AKSI (roll / bayar sewa-pajak /
-// akhiri giliran), TOOLS (Kelola properti & Trade), daftar
+// akhiri giliran), TOOLS (Kartu Saya & Aset Saya), daftar
 // PlayerCard, dan GameLog.
 //
 // Sejak modal ditambahkan, keputusan beli / kartu / penjara /
@@ -27,7 +27,7 @@ import {
   MILLIONAIRE_UI_ASSETS,
 } from '../../constants/millionaireAssets';
 import {
-  SQUARES, KOMPLEX_COLORS, getKomplexSquares, ownsFullKomplex,
+  KOMPLEX_COLORS, getKomplexSquares, getSquaresForMap, ownsFullKomplex,
 } from '../../constants/squares';
 
 const fmt = (n) => n?.toLocaleString('id-ID') ?? '0';
@@ -44,7 +44,7 @@ const MODAL_HINT = {
   AUCTION:      'Lelang sedang berlangsung di tengah layar.',
 };
 
-export default function ControlPanel({ game, difficulty, onQuit, onOpenTrade, sound }) {
+export default function ControlPanel({ game, difficulty, onQuit, sound }) {
   const {
     players, currentPlayer, currentPlayerIndex, owners, houses, hotels,
     lastRoll, log, landResult, waitingFor, canRoll, pendingDebt,
@@ -57,15 +57,11 @@ export default function ControlPanel({ game, difficulty, onQuit, onOpenTrade, so
   const [cardsOpen, setCardsOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(true);
   const [diceRolling, setDiceRolling] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const isAI = !!currentPlayer?.isAI;
   const raising = waitingFor === 'RAISE_FUNDS';
-  const playerRows = players.length <= 3
-    ? [players]
-    : players.length === 4
-      ? [players.slice(0, 2), players.slice(2)]
-      : [players.slice(0, 3), players.slice(3)];
 
-  // Tools (kelola / trade) aktif saat giliran manusia & tidak menunggu
+  // Tools (kelola / kartu) aktif saat giliran manusia & tidak menunggu
   // resolusi lain — KECUALI saat RAISE_FUNDS, di mana kelola wajib dibuka.
   const toolsEnabled = !isAI && (!waitingFor || raising);
 
@@ -177,11 +173,10 @@ export default function ControlPanel({ game, difficulty, onQuit, onOpenTrade, so
           >
             <img
               className="game-ui-icon game-ui-icon--roll"
-              src={MILLIONAIRE_UI_ASSETS.roll}
+              src={endingTurn ? MILLIONAIRE_UI_ASSETS.endTurn : MILLIONAIRE_UI_ASSETS.roll}
               alt=""
               draggable={false}
             />
-            {endingTurn && <span className="btn-roll-label">Akhiri Giliran</span>}
           </button>
           {endingTurn && currentPlayer.money < 0 && (
             <button className="btn btn-danger btn-bankruptcy" onClick={declareBankruptcy}>
@@ -213,22 +208,42 @@ export default function ControlPanel({ game, difficulty, onQuit, onOpenTrade, so
           {isAI && <span className="panel-aiflag">AI · {difficulty}</span>}
         </div>
         {sound && (
-          <button
-            className="btn btn-ghost btn-sm panel-settings-button"
-            onClick={sound.toggle}
-            title={sound.enabled ? 'Matikan suara' : 'Nyalakan suara'}
-            aria-label={sound.enabled ? 'Matikan suara' : 'Nyalakan suara'}
-          >
-            <img
-              className="panel-settings-icon"
-              src={MILLIONAIRE_UI_ASSETS.settings}
-              alt=""
-              draggable={false}
-            />
-            <span className="sr-only">{sound.enabled ? 'Matikan suara' : 'Nyalakan suara'}</span>
-          </button>
+          <div className="panel-settings">
+            <button
+              className="btn btn-ghost btn-sm panel-settings-button"
+              onClick={() => setSettingsOpen((open) => !open)}
+              title="Pengaturan"
+              aria-label="Pengaturan"
+              aria-expanded={settingsOpen}
+            >
+              <img
+                className="panel-settings-icon"
+                src={MILLIONAIRE_UI_ASSETS.settings}
+                alt=""
+                draggable={false}
+              />
+              <span className="sr-only">Pengaturan</span>
+            </button>
+            {settingsOpen && (
+              <div className="panel-settings-menu" role="menu" aria-label="Pengaturan permainan">
+                <button
+                  className="panel-settings-option"
+                  role="menuitem"
+                  onClick={sound.toggle}
+                >
+                  Suara: {sound.enabled ? 'Aktif' : 'Mati'}
+                </button>
+                <button
+                  className="panel-settings-option panel-settings-exit"
+                  role="menuitem"
+                  onClick={onQuit}
+                >
+                  Keluar dari permainan
+                </button>
+              </div>
+            )}
+          </div>
         )}
-        <button className="btn btn-ghost btn-sm" onClick={onQuit}>Keluar</button>
       </div>
 
       <DiceDisplay
@@ -248,7 +263,7 @@ export default function ControlPanel({ game, difficulty, onQuit, onOpenTrade, so
         />
       )}
 
-      {/* ── TOOLS: Kelola & Trade ─────────────────────────────── */}
+      {/* ── TOOLS: Kelola Properti ────────────────────────────── */}
       {!isAI && (
         <div className="panel-tools">
           <button
@@ -282,13 +297,6 @@ export default function ControlPanel({ game, difficulty, onQuit, onOpenTrade, so
               draggable={false}
             />
           </button>
-          <button
-            className="btn btn-ghost btn-sm panel-tool-trade"
-            disabled={!toolsEnabled || raising}
-            onClick={onOpenTrade}
-          >
-            🤝
-          </button>
         </div>
       )}
 
@@ -307,17 +315,13 @@ export default function ControlPanel({ game, difficulty, onQuit, onOpenTrade, so
       )}
 
       <div className="panel-players">
-        {playerRows.map((row, rowIndex) => (
-          <div className="panel-player-row" key={`row-${rowIndex}`}>
-            {row.map((p) => (
-              <PlayerCard
-                key={p.id}
-                player={p}
-                game={game}
-                isCurrent={p.id === players[currentPlayerIndex]?.id}
-              />
-            ))}
-          </div>
+        {players.map((p) => (
+          <PlayerCard
+            key={p.id}
+            player={p}
+            game={game}
+            isCurrent={p.id === players[currentPlayerIndex]?.id}
+          />
         ))}
       </div>
 
@@ -343,19 +347,15 @@ export default function ControlPanel({ game, difficulty, onQuit, onOpenTrade, so
 
 function ManagePanel({ player, game, onClose, onBuyHouse, onBuyHotel, onSellHouse, onSellHotel, onMortgage, onUnmortgage }) {
   const { owners, houses, hotels, housesLeft, hotelsLeft } = game;
+  const squares = getSquaresForMap(game.settings?.map);
   const propertyTypes = ['property', 'airport', 'utility'];
-  const allProperties = SQUARES.filter((square) => propertyTypes.includes(square.type));
+  const allProperties = squares.filter((square) => propertyTypes.includes(square.type));
   const myProps = allProperties.filter((square) => owners[square.id] === player.id);
   const assetValue = myProps.reduce((total, square) =>
     total +
       (square.price || 0) +
       (houses[square.id] || 0) * (square.houseCost || 0) +
       (hotels[square.id] || 0) * (square.hotelCost || 0), 0);
-  const avatar = player.id === 0
-    ? 'avatar_gold'
-    : player.id % 2
-      ? 'avatar_blue'
-      : 'avatar_green';
   const [previewSquare, setPreviewSquare] = useState(null);
 
   useEffect(() => {
@@ -370,21 +370,21 @@ function ManagePanel({ player, game, onClose, onBuyHouse, onBuyHotel, onSellHous
 
   // Apakah ada properti komplex yang sedang digadai (blokir build seluruh komplex)
   const komplexHasMortgage = (komplex) =>
-    getKomplexSquares(komplex).some((s) => (player.mortgaged || []).includes(s.id));
+    getKomplexSquares(komplex, squares).some((s) => (player.mortgaged || []).includes(s.id));
   const komplexHasBuildings = (komplex) =>
-    getKomplexSquares(komplex).some(
+    getKomplexSquares(komplex, squares).some(
       (s) => (houses[s.id] || 0) > 0 || (hotels[s.id] || 0) > 0
     );
 
   // Min/Max jumlah rumah dalam komplex (aturan bangun & jual merata)
   const minHousesInKomplex = (komplex) =>
-    Math.min(...getKomplexSquares(komplex).map((s) => houses[s.id] || 0));
+    Math.min(...getKomplexSquares(komplex, squares).map((s) => houses[s.id] || 0));
   const maxHousesInKomplex = (komplex) =>
-    Math.max(...getKomplexSquares(komplex).map((s) => houses[s.id] || 0));
+    Math.max(...getKomplexSquares(komplex, squares).map((s) => houses[s.id] || 0));
 
   // Semua properti komplex sudah siap hotel? (>=4 rumah / sudah hotel)
   const komplexReadyForHotel = (komplex) =>
-    getKomplexSquares(komplex).every(
+    getKomplexSquares(komplex, squares).every(
       (s) => (houses[s.id] || 0) >= RULES.MIN_HOUSES_FOR_HOTEL || (hotels[s.id] || 0) >= 1
     );
 
@@ -393,7 +393,7 @@ function ManagePanel({ player, game, onClose, onBuyHouse, onBuyHotel, onSellHous
     const hasHotel = (hotels[sq.id] || 0) >= 1;
     const mortgaged = (player.mortgaged || []).includes(sq.id);
     const isBuildable = !!sq.komplex; // hanya properti komplex bisa dibangun
-    const full = isBuildable && ownsFullKomplex(sq.komplex, player.id, owners);
+    const full = isBuildable && ownsFullKomplex(sq.komplex, player.id, owners, squares);
     const safeKomplex = isBuildable && !komplexHasMortgage(sq.komplex);
 
     const canBuildHouse =
@@ -445,14 +445,6 @@ function ManagePanel({ player, game, onClose, onBuyHouse, onBuyHotel, onSellHous
           alt=""
           draggable={false}
         />
-        <div className="asset-owner">
-          <img
-            src={`/millionaire-game/assets/ui/${avatar}.png`}
-            alt=""
-            draggable={false}
-          />
-          <span>{player.name}</span>
-        </div>
         <button
           className="asset-window-close"
           onClick={onClose}
@@ -595,7 +587,7 @@ function PowerUpPanel({ player, game, onUse, disabled }) {
   const cards = player?.powerUps || [];
   if (!cards.length) return null;
 
-  const destinations = SQUARES.filter((square) =>
+  const destinations = getSquaresForMap(game.settings?.map).filter((square) =>
     square.type === 'airport' || square.type === 'utility'
   );
   const canUse = (action) => {

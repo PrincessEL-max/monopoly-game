@@ -1,112 +1,139 @@
 // ============================================================
-// DiceDisplay.jsx — Tampilan dua dadu dengan titik (pip).
+// DiceDisplay.jsx — Lemparan dua dadu 3D di atas papan.
 // Props: roll = { d1, d2, total, isDouble } | null
-//
-// Upgrade P2: animasi "menggelinding" — saat nilai roll berubah,
-// dadu menampilkan angka acak yang berganti cepat selama
-// ANIMATION.DICE_ROLL_DURATION sebelum mengunci nilai final.
 // ============================================================
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ANIMATION } from '../../constants/config';
-
-// Indeks titik aktif pada grid 3×3 (0–8) untuk tiap angka 1–6
-const PIPS = {
-  1: [4],
-  2: [0, 8],
-  3: [0, 4, 8],
-  4: [0, 2, 6, 8],
-  5: [0, 2, 4, 6, 8],
-  6: [0, 2, 3, 5, 6, 8],
-};
-
-function Die({ value, rolling, landed }) {
-  const active = new Set(PIPS[value] || []);
-  return (
-    <div
-      className={`die${rolling ? ' die--rolling' : ''}${landed ? ' die--landed' : ''}`}
-      aria-label={`Dadu ${value}`}
-    >
-      {Array.from({ length: 9 }).map((_, i) => (
-        <span key={i} className={`die-pip${active.has(i) ? ' die-pip--on' : ''}`} />
-      ))}
-    </div>
-  );
-}
 
 export default function DiceDisplay({
   roll,
   rollDuration = ANIMATION.DICE_ROLL_DURATION,
   onRollingChange,
 }) {
+  const canvasRef = useRef(null);
+  const rendererRef = useRef(null);
+  const pendingRollRef = useRef(null);
+  const timeoutRef = useRef(null);
+  const landTimeoutRef = useRef(null);
+  const lastRollRef = useRef(null);
+  const startRollRef = useRef(null);
+  const finishRollRef = useRef(null);
   const [display, setDisplay] = useState({ d1: 1, d2: 1 });
   const [rolling, setRolling] = useState(false);
   const [landed, setLanded] = useState(false);
-  const intervalRef = useRef(null);
-  const timeoutRef = useRef(null);
-  const landTimeoutRef = useRef(null);
-  // Tandai roll yang sudah dianimasikan agar tidak mengulang
-  const lastKeyRef = useRef(null);
+  const [rendererReady, setRendererReady] = useState(false);
+  const [rendererError, setRendererError] = useState('');
+  const hasRoll = Boolean(roll);
+
+  finishRollRef.current = (result) => {
+    rendererRef.current?.settle(result);
+    setDisplay({ d1: result.d1, d2: result.d2 });
+    setRolling(false);
+    setLanded(true);
+    onRollingChange?.(false);
+    landTimeoutRef.current = setTimeout(() => setLanded(false), 400);
+  };
+  startRollRef.current = (result, duration) => {
+    if (!rendererRef.current) {
+      pendingRollRef.current = { result, duration };
+      return;
+    }
+    rendererRef.current.roll(result, duration);
+    timeoutRef.current = setTimeout(() => finishRollRef.current?.(result), duration);
+  };
+
+  useEffect(() => {
+    if (!hasRoll || rendererRef.current) return undefined;
+    let cancelled = false;
+    let createdRenderer = null;
+
+    import('../../logic/diceRenderer3D.js')
+      .then(({ createDiceRenderer }) => {
+        if (cancelled) return;
+        createdRenderer = createDiceRenderer(canvasRef.current);
+        rendererRef.current = createdRenderer;
+        setRendererReady(true);
+
+        const pending = pendingRollRef.current;
+        if (pending) {
+          pendingRollRef.current = null;
+          startRollRef.current?.(pending.result, pending.duration);
+        }
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.error('Unable to load the 3D dice renderer.', error);
+        setRendererError('Animasi 3D dadu tidak dapat dimuat di perangkat ini.');
+        const pending = pendingRollRef.current;
+        pendingRollRef.current = null;
+        if (pending) finishRollRef.current?.(pending.result);
+      });
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutRef.current);
+      clearTimeout(landTimeoutRef.current);
+      createdRenderer?.dispose();
+      if (rendererRef.current === createdRenderer) rendererRef.current = null;
+      setRendererReady(false);
+    };
+  }, [hasRoll]);
 
   useEffect(() => {
     if (!roll) {
-      lastKeyRef.current = null;
+      lastRollRef.current = null;
+      pendingRollRef.current = null;
       setRolling(false);
       setLanded(false);
       onRollingChange?.(false);
-      return;
+      return undefined;
     }
-    if (roll === lastKeyRef.current) return;
-    lastKeyRef.current = roll;
+    if (roll === lastRollRef.current) return undefined;
+    lastRollRef.current = roll;
 
+    clearTimeout(timeoutRef.current);
+    clearTimeout(landTimeoutRef.current);
     setRolling(true);
     setLanded(false);
     onRollingChange?.(true);
-    clearInterval(intervalRef.current);
-    clearTimeout(timeoutRef.current);
-    clearTimeout(landTimeoutRef.current);
-
-    // Ganti angka dadu cepat selama animasi lemparan.
-    intervalRef.current = setInterval(() => {
-      setDisplay({
-        d1: 1 + Math.floor(Math.random() * 6),
-        d2: 1 + Math.floor(Math.random() * 6),
-      });
-    }, 90);
-
-    timeoutRef.current = setTimeout(() => {
-      clearInterval(intervalRef.current);
-      setDisplay({ d1: roll.d1, d2: roll.d2 });
-      setRolling(false);
-      setLanded(true);
-      onRollingChange?.(false);
-      landTimeoutRef.current = setTimeout(() => setLanded(false), 400);
-    }, rollDuration);
+    startRollRef.current?.(roll, rollDuration);
 
     return () => {
-      clearInterval(intervalRef.current);
       clearTimeout(timeoutRef.current);
       clearTimeout(landTimeoutRef.current);
     };
   }, [roll, rollDuration, onRollingChange]);
 
-  if (!roll) {
-    return (
-      <div className="dice-wrap">
-        <div className="die die--empty">?</div>
-        <div className="die die--empty">?</div>
-      </div>
-    );
-  }
-
   return (
-    <div className="dice-wrap">
-      <Die value={display.d1} rolling={rolling} landed={landed} />
-      <Die value={display.d2} rolling={rolling} landed={landed} />
-      <div className="dice-total">
-        {rolling ? '…' : <>= {roll.total}</>}
-        {!rolling && roll.isDouble && <span className="dice-double">DOUBLE!</span>}
-      </div>
+    <div
+      className={`dice-wrap${hasRoll ? ' dice-wrap--active' : ' dice-wrap--idle'}${rendererReady ? ' dice-wrap--ready' : ''}${rolling ? ' dice-wrap--rolling' : ''}${landed ? ' dice-wrap--landed' : ''}`}
+      role="group"
+      aria-label={roll
+        ? rolling
+          ? 'Dadu sedang dilempar'
+          : `Hasil dadu ${display.d1} dan ${display.d2}`
+        : 'Dadu belum dilempar'}
+    >
+      <canvas className="dice-canvas" ref={canvasRef} aria-hidden="true" />
+      {(!hasRoll || !rendererReady) && (
+        <div className="dice-placeholder" aria-hidden="true">
+          <div className="die die--empty">?</div>
+          <div className="die die--empty">?</div>
+        </div>
+      )}
+      {rendererError && <span className="dice-render-error" role="alert">{rendererError}</span>}
+      {roll && (
+        <>
+          <span className="sr-only" aria-live="polite">
+            Dadu {display.d1} dan {display.d2}, total {roll.total}
+          </span>
+          <div className="dice-total">
+            {rolling ? '…' : <>= {roll.total}</>}
+            {!rolling && roll.isDouble && <span className="dice-double">DOUBLE!</span>}
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -3,7 +3,7 @@
 // ============================================================
 
 import React from 'react';
-import { SQUARES } from '../../constants/squares';
+import { getSquaresForMap } from '../../constants/squares';
 import { calcNetWorth } from '../../logic/rentLogic';
 
 const fmt = (n) => n?.toLocaleString('id-ID') ?? '0';
@@ -20,7 +20,8 @@ const PLAYER_SKINS = [
 export default function PlayerCard({ player, game, isCurrent }) {
   const owners = game?.owners ?? {};
   const skin = PLAYER_SKINS[player.id % PLAYER_SKINS.length];
-  const propCount = SQUARES.filter((square) => owners[square.id] === player.id).length;
+  const propCount = getSquaresForMap(game?.settings?.map)
+    .filter((square) => owners[square.id] === player.id).length;
   const netWorth = game ? calcNetWorth(player, game) : player.money;
   const cls = [
     'pcard',

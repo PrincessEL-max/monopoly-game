@@ -37,7 +37,7 @@ function GameRoot({ onRestart }) {
   const [difficulty] = useState('medium');
   const [tradeOpen, setTradeOpen] = useState(false);
   const [timerNow, setTimerNow] = useState(Date.now);
-  const [boardZoom, setBoardZoom] = useState(1.1);
+  const [boardZoom, setBoardZoom] = useState(1);
   const [stageMetrics, setStageMetrics] = useState({ scale: 1, height: 576 });
   const stageViewportRef = useRef(null);
   const game = useGameState();
@@ -198,31 +198,18 @@ function GameRoot({ onRestart }) {
           <small>BABAK</small>
           <strong>{Math.floor((game.turnCount || 0) / Math.max(game.players.length, 1)) + 1}</strong>
         </div>
-        <div className="board-zoom-controls" aria-label="Kontrol zoom peta">
+        {!gameView.currentPlayer?.isAI && (
           <button
-            onClick={() => setBoardZoom((zoom) => Math.min(2.4, Number((zoom + 0.15).toFixed(2))))}
-            aria-label="Perbesar peta"
-            title="Perbesar"
+            className="game-stage-trade"
+            type="button"
+            aria-label="Buka Trade"
+            title="Trade"
+            disabled={!!gameView.waitingFor}
+            onClick={() => setTradeOpen(true)}
           >
-            +
+            🤝
           </button>
-          <output>{Math.round(boardZoom * 100)}%</output>
-          <button
-            onClick={() => setBoardZoom((zoom) => Math.max(0.75, Number((zoom - 0.15).toFixed(2))))}
-            aria-label="Perkecil peta"
-            title="Perkecil"
-          >
-            −
-          </button>
-          <button
-            className="board-zoom-reset"
-            onClick={() => setBoardZoom(1.1)}
-            aria-label="Atur ulang zoom peta"
-            title="Atur ulang zoom"
-          >
-            ↺
-          </button>
-        </div>
+        )}
         <div className="app-layout">
           {multiplayer.room && (
             <div className="online-hud">
@@ -235,12 +222,6 @@ function GameRoot({ onRestart }) {
                     ? `Sisa giliran: ${Math.max(0, Math.ceil((turnDeadline - timerNow) / 1000))} dtk`
                     : 'Tersimpan otomatis'}
               </span>
-              <button
-                className="online-hud-leave"
-                onClick={restartGame}
-              >
-                Keluar
-              </button>
               {multiplayer.error && <span className="online-hud-error" role="alert">{multiplayer.error}</span>}
             </div>
           )}
@@ -252,7 +233,6 @@ function GameRoot({ onRestart }) {
             game={gameView}
             difficulty={difficulty}
             onQuit={restartGame}
-            onOpenTrade={() => setTradeOpen(true)}
             sound={sound}
           />
 

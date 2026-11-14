@@ -4,10 +4,12 @@
 // ============================================================
 
 // config tidak dibutuhkan langsung — PASS_GO hardcode inline untuk hindari circular
-import { calcNewPosition, findNearest, sendToJail, addLog } from './gameLogic.js';
+import {
+  calcNewPosition, findNearest, positionComesAfter, sendToJail, addLog,
+} from './gameLogic.js';
 import { calcRepairCost } from './rentLogic.js';
 import { RULES } from '../constants/config.js';
-import { SQUARES } from '../constants/squares.js';
+import { getSquaresForMap } from '../constants/squares.js';
 
 // ─────────────────────────────────────────────────────────────
 // MAIN ENTRY
@@ -141,7 +143,8 @@ const applyPayToPlayers = (card, player, state) => {
 const applyMoveTo = (card, player, idx, state) => {
   const currentPos = player.position;
   const targetPos = card.target;
-  const passedGo = targetPos < currentPos && card.collectGo;
+  const map = state.settings?.map;
+  const passedGo = positionComesAfter(currentPos, targetPos, map) && card.collectGo;
   const goBonus = passedGo ? RULES.PASS_GO_REWARD : 0;
 
   const players = updatePlayer(state.players, idx, {
@@ -162,7 +165,7 @@ const applyMoveTo = (card, player, idx, state) => {
 
 /** Maju/mundur N petak */
 const applyMoveBy = (card, player, idx, state) => {
-  const { newPos, passedGo } = calcNewPosition(player.position, card.steps);
+  const { newPos, passedGo } = calcNewPosition(player.position, card.steps, state.settings?.map);
   const goBonus = passedGo && card.steps > 0 ? RULES.PASS_GO_REWARD : 0;
 
   const players = updatePlayer(state.players, idx, {
@@ -180,8 +183,9 @@ const applyMoveBy = (card, player, idx, state) => {
 
 /** Pindah ke bandara/utilitas terdekat */
 const applyMoveNearest = (card, player, idx, state) => {
-  const nearestPos = findNearest(player.position, card.nearestType);
-  const passedGo = nearestPos < player.position;
+  const map = state.settings?.map;
+  const nearestPos = findNearest(player.position, card.nearestType, map);
+  const passedGo = positionComesAfter(player.position, nearestPos, map);
   const goBonus = passedGo && card.collectGo ? RULES.PASS_GO_REWARD : 0;
 
   const players = updatePlayer(state.players, idx, {
@@ -200,7 +204,8 @@ const applyMoveNearest = (card, player, idx, state) => {
 
 /** Pindah ke properti milik bank yang dipilih secara acak. */
 const applyMoveAnyUnowned = (card, player, idx, state) => {
-  const available = SQUARES.filter((square) =>
+  const map = state.settings?.map;
+  const available = getSquaresForMap(map).filter((square) =>
     square.type === 'property' && state.owners[square.id] == null
   );
   if (!available.length) {
@@ -210,7 +215,7 @@ const applyMoveAnyUnowned = (card, player, idx, state) => {
   }
 
   const square = available[Math.floor(Math.random() * available.length)];
-  const passedGo = square.id < player.position && card.collectGo;
+  const passedGo = positionComesAfter(player.position, square.id, map) && card.collectGo;
   const bonus = passedGo ? RULES.PASS_GO_REWARD : 0;
   return {
     players: updatePlayer(state.players, idx, {

@@ -11,7 +11,7 @@
 // ============================================================
 
 import React, { useState, useEffect, useRef } from 'react';
-import { SQUARES, KOMPLEX_COLORS } from '../../constants/squares';
+import { getSquaresForMap, KOMPLEX_COLORS } from '../../constants/squares';
 import { PLAYER_COLORS } from '../board/Board';
 import { aiDecideBid } from '../../logic/aiLogic';
 import { RULES } from '../../constants/config';
@@ -43,7 +43,8 @@ export default function AuctionModal({ game, difficulty = 'medium' }) {
     if (actedKey.current === key) return;
     actedKey.current = key;
 
-    const sq = SQUARES.find((s) => s.id === auction.squareId);
+    const sq = getSquaresForMap(game.settings?.map).find((s) => s.id === auction.squareId);
+    if (!sq) return undefined;
     const t = setTimeout(() => {
       const amount = aiDecideBid(bidder, sq, auction.highestBid, game, difficulty);
       amount > 0 ? auctionBid(amount) : auctionPass();
@@ -54,7 +55,7 @@ export default function AuctionModal({ game, difficulty = 'medium' }) {
 
   if (!auction) return null;
 
-  const sq = SQUARES.find((s) => s.id === auction.squareId);
+  const sq = getSquaresForMap(game.settings?.map).find((s) => s.id === auction.squareId);
   const bidder = players.find((p) => p.id === auction.currentBidderId);
   const highBidder = auction.highestBidderId != null
     ? players.find((p) => p.id === auction.highestBidderId)

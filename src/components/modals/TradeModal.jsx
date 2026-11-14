@@ -16,7 +16,7 @@
 // ============================================================
 
 import React, { useState, useEffect, useRef } from 'react';
-import { SQUARES, KOMPLEX_COLORS } from '../../constants/squares';
+import { getSquaresForMap, KOMPLEX_COLORS } from '../../constants/squares';
 import { PLAYER_COLORS } from '../board/Board';
 import PieceModel from '../board/PieceModel';
 import { aiEvaluateTrade } from '../../logic/aiLogic';
@@ -29,7 +29,7 @@ const propColor = (sq) =>
 
 // Properti milik `playerId` yang boleh ditradekan (tanpa bangunan)
 const tradableProps = (playerId, game) =>
-  SQUARES.filter(
+  getSquaresForMap(game.settings?.map).filter(
     (s) =>
       game.owners[s.id] === playerId &&
       !(game.houses[s.id] > 0) &&
@@ -85,10 +85,11 @@ function TradeResponse({ game, difficulty, onAccept, onReject }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const squares = getSquaresForMap(game.settings?.map);
   const offeredNames = pendingTrade.offeredProps
-    .map((id) => SQUARES.find((s) => s.id === id)?.name).filter(Boolean);
+    .map((id) => squares.find((s) => s.id === id)?.name).filter(Boolean);
   const requestedNames = pendingTrade.requestedProps
-    .map((id) => SQUARES.find((s) => s.id === id)?.name).filter(Boolean);
+    .map((id) => squares.find((s) => s.id === id)?.name).filter(Boolean);
 
   return (
     <div className="modal-overlay">

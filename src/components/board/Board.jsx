@@ -1,19 +1,16 @@
 // ============================================================
 // Board.jsx — Papan utama Monopoli Internasional
 //
-// Layout: CSS Grid 11×11
-//   - Row/Col 1 = kiri/atas,  Row/Col 11 = kanan/bawah
-//   - Kolom 1 & 11 = 100px (sudut), kolom 2–10 = 1fr (~62px)
-//   - Pos 0 = START (sudut kanan bawah), searah jarum jam
+// The active route determines the number of grid rows; tile IDs stay stable.
 //
 // Import dari file yang ada:
-//   squares.js  → SQUARES, KOMPLEX_COLORS
+//   squares.js  → getSquaresForMap
 //   config.js   → BOARD, COLORS
 //   images.js   → (via BoardCenter)
 // ============================================================
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { SQUARES } from '../../constants/squares';
+import { getSquaresForMap } from '../../constants/squares';
 import { BOARD, COLORS } from '../../constants/config';
 import Square       from './Square';
 import CornerSquare from './CornerSquare';
@@ -32,110 +29,66 @@ import '../../styles/board.css';
 //      right  → strip di kiri (menghadap center = kiri)
 // ─────────────────────────────────────────────────────────────
 
-const buildSquareLayout = () => {
+const buildSquareLayout = (squares) => {
   const layout = {};
+  const leftSquares = squares.filter((square) => square.id >= 11 && square.id <= 19);
+  const rightSquares = squares.filter((square) => square.id >= 31 && square.id <= 39);
+  const sideCount = leftSquares.length;
+  const topCornerRow = 1;
+  const bottomCornerRow = sideCount + 2;
 
-  for (const sq of SQUARES) {
-    const { id } = sq;
+  layout[0] = { row: bottomCornerRow, col: 11, side: 'corner' };
+  layout[10] = { row: bottomCornerRow, col: 1, side: 'corner' };
+  layout[20] = { row: topCornerRow, col: 1, side: 'corner' };
+  layout[30] = { row: topCornerRow, col: 11, side: 'corner' };
 
-    // ── Petak sudut ──────────────────────────────────────────
-    if (id === 0)  { layout[id] = { row: 11, col: 11, side: 'corner' }; continue; } // GO       kanan bawah
-    if (id === 10) { layout[id] = { row: 11, col: 1,  side: 'corner' }; continue; } // JAIL     kiri bawah
-    if (id === 20) { layout[id] = { row: 1,  col: 1,  side: 'corner' }; continue; } // PARKING  kiri atas
-    if (id === 30) { layout[id] = { row: 1,  col: 11, side: 'corner' }; continue; } // GOTOJAIL kanan atas
-
-    // ── Sisi bawah (1–9): row 11, col 10→2 ──────────────────
-    // id=1 → col 10, id=9 → col 2
-    if (id >= 1  && id <= 9)  {
-      layout[id] = { row: 11, col: 11 - id, side: 'bottom' };
-      continue;
-    }
-
-    // ── Sisi kiri (11–19): col 1, row 10→2 ──────────────────
-    // id=11 → row 10, id=19 → row 2
-    if (id >= 11 && id <= 19) {
-      layout[id] = { row: 11 - (id - 10), col: 1, side: 'left' };
-      continue;
-    }
-
-    // ── Sisi atas (21–29): row 1, col 2→10 ──────────────────
-    // id=21 → col 2, id=29 → col 10
-    if (id >= 21 && id <= 29) {
-      layout[id] = { row: 1, col: id - 19, side: 'top' };
-      continue;
-    }
-
-    // ── Sisi kanan (31–39): col 11, row 2→10 ────────────────
-    // id=31 → row 2, id=39 → row 10
-    if (id >= 31 && id <= 39) {
-      layout[id] = { row: id - 29, col: 11, side: 'right' };
-      continue;
+  for (const square of squares) {
+    const { id } = square;
+    if (id >= 1 && id <= 9) {
+      layout[id] = { row: bottomCornerRow, col: 11 - id, side: 'bottom' };
+    } else if (id >= 11 && id <= 19) {
+      const index = leftSquares.findIndex((candidate) => candidate.id === id);
+      layout[id] = { row: bottomCornerRow - 1 - index, col: 1, side: 'left' };
+    } else if (id >= 21 && id <= 29) {
+      layout[id] = { row: topCornerRow, col: id - 19, side: 'top' };
+    } else if (id >= 31 && id <= 39) {
+      const index = rightSquares.findIndex((candidate) => candidate.id === id);
+      layout[id] = { row: topCornerRow + 1 + index, col: 11, side: 'right' };
     }
   }
 
-  return layout;
+  return { layout, sideCount };
 };
-
-const SQUARE_LAYOUT = buildSquareLayout();
-
-// ─────────────────────────────────────────────────────────────
-// 2. PIXEL CENTER CALCULATOR
-//    Hitung koordinat {x, y} tengah tiap petak dalam px
-//    Dipakai PlayerPiece untuk posisi absolut bidak
-//
-//    Lebar cell sisi = (SIZE - 2×CORNER) / SQUARES_PER_SIDE
-//                    = (760 - 200) / 9 ≈ 62.22 px
-// ─────────────────────────────────────────────────────────────
 
 const SSQW = (BOARD.SIZE - 2 * BOARD.CORNER_SIZE) / BOARD.SQUARES_PER_SIDE; // ≈62.22
 const C    = BOARD.CORNER_SIZE;                                               // 100
-const ISO_WIDTH = 808 * Math.SQRT2;
-const ISO_HEIGHT = ISO_WIDTH * Math.cos((55 * Math.PI) / 180) * 1.12;
+const BOARD_OUTER_WIDTH = BOARD.SIZE + 48;
+const BOARD_RIGHT_EDGE = 676;
 
-export const getSquarePxCenter = (id) => {
-  // Sudut
-  if (id === 0)  return { x: BOARD.SIZE - C / 2, y: BOARD.SIZE - C / 2 }; // kanan bawah
-  if (id === 10) return { x: C / 2,              y: BOARD.SIZE - C / 2 }; // kiri bawah
-  if (id === 20) return { x: C / 2,              y: C / 2              }; // kiri atas
-  if (id === 30) return { x: BOARD.SIZE - C / 2, y: C / 2              }; // kanan atas
+export const getSquarePxCenter = (id, map = 'nusantara') => {
+  const squares = getSquaresForMap(map);
+  const { layout, sideCount } = buildSquareLayout(squares);
+  const squareLayout = layout[id];
+  if (!squareLayout) return { x: BOARD.SIZE / 2, y: BOARD.SIZE / 2 };
 
-  // Sisi bawah — y tetap (baris bawah), x bervariasi per kolom
-  if (id >= 1 && id <= 9) {
-    const col = 11 - id;                            // col 10→2
+  const boardHeight = 2 * C + sideCount * SSQW;
+  if (squareLayout.side === 'corner') {
     return {
-      x: C + (col - 2) * SSQW + SSQW / 2,
-      y: BOARD.SIZE - C / 2,
+      x: squareLayout.col === 1 ? C / 2 : BOARD.SIZE - C / 2,
+      y: squareLayout.row === 1 ? C / 2 : boardHeight - C / 2,
     };
   }
-
-  // Sisi kiri — x tetap (kolom kiri), y bervariasi per baris
-  if (id >= 11 && id <= 19) {
-    const row = 11 - (id - 10);                     // row 10→2
+  if (squareLayout.side === 'bottom' || squareLayout.side === 'top') {
     return {
-      x: C / 2,
-      y: C + (row - 2) * SSQW + SSQW / 2,
+      x: C + (squareLayout.col - 2) * SSQW + SSQW / 2,
+      y: squareLayout.side === 'top' ? C / 2 : boardHeight - C / 2,
     };
   }
-
-  // Sisi atas — y tetap (baris atas), x bervariasi per kolom
-  if (id >= 21 && id <= 29) {
-    const col = id - 19;                            // col 2→10
-    return {
-      x: C + (col - 2) * SSQW + SSQW / 2,
-      y: C / 2,
-    };
-  }
-
-  // Sisi kanan — x tetap (kolom kanan), y bervariasi per baris
-  if (id >= 31 && id <= 39) {
-    const row = id - 29;                            // row 2→10
-    return {
-      x: BOARD.SIZE - C / 2,
-      y: C + (row - 2) * SSQW + SSQW / 2,
-    };
-  }
-
-  return { x: BOARD.SIZE / 2, y: BOARD.SIZE / 2 }; // fallback center
+  const sideIndex = squareLayout.row - 2;
+  return {
+    x: squareLayout.side === 'left' ? C / 2 : BOARD.SIZE - C / 2,
+    y: C + (sideIndex + 0.5) * SSQW,
+  };
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -178,8 +131,25 @@ const GROUP_OFFSETS = [
 const Board = ({ gameState, zoom: controlledZoom, onZoomChange }) => {
   const viewportRef = useRef(null);
   const [fitScale, setFitScale] = useState(1);
-  const [localZoom, setLocalZoom] = useState(1.1);
+  const [localZoom, setLocalZoom] = useState(1);
+  const [cameraOffset, setCameraOffset] = useState({ x: 0, y: 0 });
+  const pointersRef = useRef(new Map());
+  const gestureRef = useRef(null);
+  const cameraOffsetRef = useRef(cameraOffset);
+  const zoomRef = useRef(controlledZoom ?? localZoom);
+  const suppressClickRef = useRef(false);
   const zoom = controlledZoom ?? localZoom;
+  cameraOffsetRef.current = cameraOffset;
+  zoomRef.current = zoom;
+  const map = gameState?.settings?.map ?? 'nusantara';
+  const squares = getSquaresForMap(map);
+  const { layout: squareLayout, sideCount } = useMemo(
+    () => buildSquareLayout(squares),
+    [squares]
+  );
+  const routeIds = useMemo(() => squares.map((square) => square.id), [squares]);
+  const boardHeight = 2 * C + sideCount * SSQW;
+  const boardOuterHeight = boardHeight + 48;
   const {
     players         = [],
     owners          = {},
@@ -194,22 +164,117 @@ const Board = ({ gameState, zoom: controlledZoom, onZoomChange }) => {
     if (!viewport) return undefined;
 
     const updateScale = () => {
-      setFitScale(Math.min(viewport.clientWidth / ISO_WIDTH, viewport.clientHeight / ISO_HEIGHT));
+      setFitScale(Math.min(
+        viewport.clientWidth / BOARD_OUTER_WIDTH,
+        viewport.clientHeight / boardOuterHeight,
+        BOARD_RIGHT_EDGE / BOARD_OUTER_WIDTH
+      ));
     };
     const observer = new ResizeObserver(updateScale);
     observer.observe(viewport);
     updateScale();
     return () => observer.disconnect();
-  }, []);
+  }, [boardOuterHeight]);
 
-  const updateZoom = (change) => {
-    const next = Math.min(2.4, Math.max(0.75, Number((zoom + change).toFixed(2))));
-    if (onZoomChange) onZoomChange(next);
-    else setLocalZoom(next);
+  const moveCamera = (nextOffset) => {
+    cameraOffsetRef.current = nextOffset;
+    setCameraOffset(nextOffset);
+  };
+  const updateZoom = (nextZoom) => {
+    zoomRef.current = nextZoom;
+    if (onZoomChange) onZoomChange(nextZoom);
+    else setLocalZoom(nextZoom);
+  };
+  const getViewportPoint = (clientX, clientY) => {
+    const viewport = viewportRef.current;
+    const rect = viewport.getBoundingClientRect();
+    return {
+      x: (clientX - rect.left) * (viewport.clientWidth / rect.width),
+      y: (clientY - rect.top) * (viewport.clientHeight / rect.height),
+    };
+  };
+  const zoomAtPoint = (point, factor) => {
+    const viewport = viewportRef.current;
+    const currentZoom = zoomRef.current;
+    const nextZoom = Math.max(1, currentZoom * factor);
+    if (nextZoom === currentZoom || fitScale <= 0) return;
+
+    const currentScale = fitScale * currentZoom;
+    const nextScale = fitScale * nextZoom;
+    const currentCenterX =
+      BOARD_RIGHT_EDGE - (BOARD_OUTER_WIDTH * currentScale) / 2 + cameraOffsetRef.current.x;
+    const currentCenterY = viewport.clientHeight / 2 + cameraOffsetRef.current.y;
+    const worldX = (point.x - currentCenterX) / currentScale;
+    const worldY = (point.y - currentCenterY) / currentScale;
+    const nextCameraOffset = {
+      x: point.x - worldX * nextScale -
+        (BOARD_RIGHT_EDGE - (BOARD_OUTER_WIDTH * nextScale) / 2),
+      y: point.y - worldY * nextScale - viewport.clientHeight / 2,
+    };
+
+    moveCamera(nextCameraOffset);
+    updateZoom(nextZoom);
   };
   const handleWheel = (event) => {
+    const point = getViewportPoint(event.clientX, event.clientY);
+    const delta = Math.max(-300, Math.min(300, event.deltaY));
+    zoomAtPoint(point, Math.exp(-delta * 0.001));
+  };
+  const getPinchPoints = () => [...pointersRef.current.values()].slice(0, 2);
+  const getPinchMetrics = (points) => {
+    const [first, second] = points;
+    return {
+      center: { x: (first.x + second.x) / 2, y: (first.y + second.y) / 2 },
+      distance: Math.hypot(second.x - first.x, second.y - first.y),
+    };
+  };
+  const handlePointerDown = (event) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    if (pointersRef.current.size === 0) suppressClickRef.current = false;
+    const point = getViewportPoint(event.clientX, event.clientY);
+    pointersRef.current.set(event.pointerId, point);
+
+    if (pointersRef.current.size < 2) return;
+    const points = getPinchPoints();
+    const { distance } = getPinchMetrics(points);
+    const currentZoom = zoomRef.current;
+    gestureRef.current = {
+      type: 'pinch',
+      startZoom: currentZoom,
+      startDistance: Math.max(1, distance),
+    };
+    for (const [pointerId] of pointersRef.current) {
+      if (!event.currentTarget.hasPointerCapture(pointerId)) {
+        event.currentTarget.setPointerCapture(pointerId);
+      }
+    }
+    suppressClickRef.current = true;
+  };
+  const handlePointerMove = (event) => {
+    if (!pointersRef.current.has(event.pointerId)) return;
+    const point = getViewportPoint(event.clientX, event.clientY);
+    pointersRef.current.set(event.pointerId, point);
+
+    const gesture = gestureRef.current;
+    if (gesture?.type === 'pinch' && pointersRef.current.size >= 2) {
+      const points = getPinchPoints();
+      const { distance } = getPinchMetrics(points);
+      const nextZoom = Math.max(1, gesture.startZoom * distance / gesture.startDistance);
+      event.preventDefault();
+      updateZoom(nextZoom);
+    }
+  };
+  const handlePointerUp = (event) => {
+    const gesture = gestureRef.current;
+    if (gesture?.type === 'pinch') suppressClickRef.current = true;
+    pointersRef.current.delete(event.pointerId);
+    gestureRef.current = null;
+  };
+  const handleClickCapture = (event) => {
+    if (!suppressClickRef.current) return;
+    suppressClickRef.current = false;
     event.preventDefault();
-    updateZoom(event.deltaY < 0 ? 0.1 : -0.1);
+    event.stopPropagation();
   };
 
   // Kelompokkan pemain aktif per posisi (untuk offset bidak)
@@ -227,23 +292,53 @@ const Board = ({ gameState, zoom: controlledZoom, onZoomChange }) => {
 
   // ID petak yang sedang di-highlight (hasil landing)
   const highlightedId = landResult?.square?.id ?? null;
+  const boardSize = BOARD_OUTER_WIDTH * fitScale * zoom;
 
   return (
-    <div className="board2d-viewport" ref={viewportRef} onWheel={handleWheel}>
+    <div
+      className="board2d-viewport"
+      ref={viewportRef}
+      onWheel={handleWheel}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+      onClickCapture={handleClickCapture}
+      onDragStart={(event) => event.preventDefault()}
+      style={{ aspectRatio: `${BOARD_OUTER_WIDTH} / ${boardOuterHeight}` }}
+    >
+    <div
+      className="board-camera"
+      style={{
+        transform: `translate3d(${cameraOffset.x}px, ${cameraOffset.y}px, 0)`,
+      }}
+    >
     <div
       className="board-outer"
       style={{
-        '--board-offset-y': `${fitScale * zoom * 107}px`,
-        transform: `scale(${fitScale * zoom}) rotateX(55deg) rotateZ(45deg)`,
+        left: `${BOARD_RIGHT_EDGE - boardSize / 2}px`,
+        top: '50%',
+        width: `${BOARD_OUTER_WIDTH}px`,
+        height: `${boardOuterHeight}px`,
+        marginLeft: `${-BOARD_OUTER_WIDTH / 2}px`,
+        marginTop: `${-boardOuterHeight / 2}px`,
+        transform: `scale(${fitScale * zoom})`,
       }}
     >
       {/* Bingkai emas dekoratif */}
       <div className="board-frame">
-        <div className="board-grid">
+        <div
+          className="board-grid"
+          style={{
+            width: `${BOARD.SIZE}px`,
+            height: `${boardHeight}px`,
+            gridTemplateColumns: `${C}px repeat(${BOARD.SQUARES_PER_SIDE}, minmax(0, 1fr)) ${C}px`,
+            gridTemplateRows: `${C}px repeat(${sideCount}, minmax(0, 1fr)) ${C}px`,
+          }}
+        >
 
-          {/* ── 40 Petak ──────────────────────────────────── */}
-          {SQUARES.map(square => {
-            const layout = SQUARE_LAYOUT[square.id];
+          {squares.map(square => {
+            const layout = squareLayout[square.id];
             if (!layout) return null;
 
             const gridStyle = {
@@ -288,7 +383,10 @@ const Board = ({ gameState, zoom: controlledZoom, onZoomChange }) => {
           })}
 
           {/* ── Tengah Board ──────────────────────────────── */}
-          <div className="board-center-area">
+          <div
+            className="board-center-area"
+            style={{ gridRow: `2 / ${sideCount + 2}`, gridColumn: '2 / 11' }}
+          >
             <BoardCenter />
           </div>
 
@@ -310,7 +408,8 @@ const Board = ({ gameState, zoom: controlledZoom, onZoomChange }) => {
                   <PlayerPiece
                     key={player.id}
                     player={player}
-                    resolveCenter={getSquarePxCenter}
+                    resolveCenter={(id) => getSquarePxCenter(id, map)}
+                    routeIds={routeIds}
                     offset={offset}
                     color={PLAYER_COLORS[player.id] ?? '#ffffff'}
                   />
@@ -320,6 +419,7 @@ const Board = ({ gameState, zoom: controlledZoom, onZoomChange }) => {
 
         </div>
       </div>
+    </div>
     </div>
     </div>
   );

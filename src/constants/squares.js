@@ -438,12 +438,21 @@ export const SQUARES = [
   },
 ];
 
+export const COMPACT_MAP_ID = 'nusantara-compact';
+export const COMPACT_MAP_REMOVED_IDS = [14, 17, 36, 38];
+export const COMPACT_SQUARES = SQUARES.filter(
+  (square) => !COMPACT_MAP_REMOVED_IDS.includes(square.id)
+);
+
+export const getSquaresForMap = (map = 'nusantara') =>
+  map === COMPACT_MAP_ID ? COMPACT_SQUARES : SQUARES;
+
 // Helper: ambil semua properti dalam 1 komplex
-export const getKomplexSquares = (komplex) =>
-  SQUARES.filter((s) => s.komplex === komplex);
+export const getKomplexSquares = (komplex, squares = SQUARES) =>
+  squares.filter((s) => s.komplex === komplex);
 
 // Helper: cek apakah pemain kuasai seluruh komplex
-export const ownsFullKomplex = (komplex, ownerId, owners) => {
-  const props = getKomplexSquares(komplex);
+export const ownsFullKomplex = (komplex, ownerId, owners, squares = SQUARES) => {
+  const props = getKomplexSquares(komplex, squares);
   return props.every((s) => owners[s.id] === ownerId);
 };

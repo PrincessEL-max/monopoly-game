@@ -26,6 +26,7 @@ export const MILLIONAIRE_UI_ASSETS = {
   cards: `${BASE}/ui/btn_kartu.png`,
   assets: `${BASE}/ui/btn_aset.png`,
   roll: `${BASE}/ui/btn_kocok.png`,
+  endTurn: `${BASE}/ui/btn_akhiri.png`,
   assetFrame: `${BASE}/ui/aset_frame.png`,
   assetEmpty: `${BASE}/ui/aset_kosong.png`,
   assetMortgage: `${BASE}/ui/aset_gadai.png`,

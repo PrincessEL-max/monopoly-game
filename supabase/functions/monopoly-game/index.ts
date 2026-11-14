@@ -54,7 +54,7 @@ type RoomRecord = {
   game_state: GameState | null;
   version: number;
   room_type: "Publik" | "Privat";
-  map_id: "nusantara" | "dunia" | "kota";
+  map_id: "nusantara" | "dunia" | "kota" | "nusantara-compact";
   start_money: 200000 | 250000 | 300000;
   turn_seconds: 15 | 30 | 45;
   mode: "room" | "quick";
@@ -714,7 +714,8 @@ const handleRequest = async (body: Record<string, unknown>) => {
       const piece = body.piece;
       const maxPlayers = Number(body.maxPlayers);
       const roomType = body.type === "Privat" ? "Privat" : "Publik";
-      const mapId = body.map === "dunia" || body.map === "kota"
+      const mapId = body.map === "dunia" || body.map === "kota" ||
+          body.map === "nusantara-compact"
         ? body.map
         : "nusantara";
       const startMoney = Number(body.startMoney ?? 250000);

@@ -259,14 +259,6 @@
 }
 .online-hud strong { color: var(--gold); letter-spacing: 2px; }
 .online-save-status { color: #86efac; font-size: 11px; }
-.online-hud-leave {
-  padding: 5px 9px;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  background: transparent;
-  color: var(--txt-2);
-  cursor: pointer;
-}
 .online-hud-error { flex-basis: 100%; color: #fecaca; text-align: center; }
 
 .setup-label {
@@ -450,40 +442,78 @@
 /* ── Dadu ───────────────────────────────────────────────────── */
 
 .dice-wrap {
+  position: relative;
+  display: block;
+  width: 220px;
+  height: 120px;
+  flex: 0 0 auto;
+  background: rgba(0,0,0,.25);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0;
+  overflow: visible;
+}
+.die {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #d5c8b3;
+  border-radius: 10px;
+  background: radial-gradient(circle at 30% 22%, #fffefb, #f3eadc 65%, #dccbb2);
+  box-shadow: 0 3px 8px rgba(0,0,0,.35), inset 0 -3px 5px rgba(0,0,0,.12);
+  color: #777;
+  font-size: 24px;
+  font-weight: 900;
+}
+.dice-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .16s ease;
+}
+.dice-wrap--ready .dice-canvas { opacity: 1; }
+.dice-placeholder {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 12px;
-  background: rgba(0,0,0,.25);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 14px;
+  pointer-events: none;
 }
-.die {
-  width: 48px; height: 48px;
-  background: linear-gradient(150deg, #fff, #e6e6e6);
-  border-radius: 10px;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(3, 1fr);
-  padding: 6px;
-  gap: 2px;
-  box-shadow: 0 3px 8px rgba(0,0,0,.5), inset 0 -3px 5px rgba(0,0,0,.15);
-}
-.die-pip { border-radius: 50%; }
-.die-pip--on { background: #1a1a2e; box-shadow: inset 0 1px 1px rgba(0,0,0,.5); }
+.dice-wrap--ready .dice-placeholder { display: none; }
 .die--empty {
-  display: flex; align-items: center; justify-content: center;
-  font-size: 24px; font-weight: 900; color: #9aa;
-  background: linear-gradient(150deg, #f0f0f0, #d8d8d8);
+  color: #9aa;
 }
 .dice-total {
+  position: absolute;
+  z-index: 3;
+  right: 4px;
+  bottom: 1px;
   font-weight: 800;
   font-size: 18px;
   color: var(--gold-2);
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+.dice-render-error {
+  position: absolute;
+  z-index: 4;
+  inset: 5px 5px auto;
+  padding: 4px;
+  border-radius: 5px;
+  background: rgba(65, 12, 12, .9);
+  color: #ffd2be;
+  font-size: 10px;
+  text-align: center;
 }
 .dice-double {
   font-size: 10px;
@@ -724,20 +754,6 @@
   margin-top: 9px;
 }
 
-
-/* ============================================================
-   P2: ANIMASI DADU
-   ============================================================ */
-.die--rolling {
-  animation: die-shake 0.18s ease-in-out infinite;
-}
-@keyframes die-shake {
-  0%   { transform: rotate(-8deg) translateY(0); }
-  25%  { transform: rotate(6deg) translateY(-3px); }
-  50%  { transform: rotate(-5deg) translateY(0); }
-  75%  { transform: rotate(7deg) translateY(-2px); }
-  100% { transform: rotate(-8deg) translateY(0); }
-}
 
 /* ============================================================
    P2: NET WORTH di PlayerCard
@@ -1021,6 +1037,31 @@
 }
 .game-stage-round small { color: #ffe9a8; font-size: 12px; font-weight: 700; }
 .game-stage-round strong { color: #fff; font-size: 32px; line-height: 1; }
+.game-stage-trade {
+  position: absolute;
+  z-index: 9;
+  top: 104px;
+  right: 32px;
+  display: grid;
+  width: 46px;
+  height: 42px;
+  place-items: center;
+  padding: 0;
+  border: 2px solid #ffe28a;
+  border-radius: 12px;
+  background: linear-gradient(#6f4824, #392515);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, .35);
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+}
+.game-stage-trade:hover:not(:disabled) {
+  background: linear-gradient(#8a5a2c, #503218);
+}
+.game-stage-trade:disabled {
+  opacity: .48;
+  cursor: not-allowed;
+}
 .game-stage-rotate { display: none; }
 .game-card-decks { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
 .game-deck {
@@ -1064,19 +1105,6 @@
   font-size: 11px;
 }
 .game-stage .online-hud-error { text-align: left; }
-.game-stage .app-board-area {
-  position: absolute;
-  z-index: 2;
-  top: 128px;
-  left: 300px;
-  display: grid;
-  width: 420px;
-  height: 300px;
-  place-items: center;
-}
-.game-stage .board2d-viewport { width: 300px; height: 300px; }
-.game-stage--many-players .app-board-area { top: 228px; height: 200px; }
-.game-stage--many-players .board2d-viewport { width: 200px; height: 200px; }
 .game-stage .panel {
   position: absolute;
   z-index: 4;
@@ -1118,14 +1146,40 @@
   background: transparent;
   box-shadow: none;
 }
-.game-stage .panel-head > button:last-child {
-  min-height: 30px;
-  margin-top: 8px;
-  padding: 4px 9px;
-  border-color: #ffe28a;
+.game-stage .panel-settings {
+  position: relative;
+}
+.game-stage .panel-settings-menu {
+  position: absolute;
+  z-index: 20;
+  top: 76px;
+  left: 0;
+  display: grid;
+  width: 190px;
+  gap: 6px;
+  padding: 9px;
+  border: 2px solid #e8c45a;
+  border-radius: 12px;
   background: linear-gradient(#6f4824, #392515);
-  color: #fff;
-  font-size: 11px;
+  box-shadow: 0 5px 14px rgba(0,0,0,.45);
+  pointer-events: auto;
+}
+.game-stage .panel-settings-option {
+  min-height: 36px;
+  padding: 6px 9px;
+  border: 1px solid rgba(255,226,138,.65);
+  border-radius: 8px;
+  background: rgba(0,0,0,.18);
+  color: #fff2d6;
+  font: 700 12px "Fredoka", "Trebuchet MS", sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+.game-stage .panel-settings-option:hover {
+  background: rgba(255,226,138,.16);
+}
+.game-stage .panel-settings-exit {
+  color: #ffd2be;
 }
 .panel-settings-icon { width: 100%; height: 100%; object-fit: contain; }
 .sr-only {
@@ -1141,21 +1195,16 @@
 .game-stage .panel-players {
   position: absolute;
   z-index: 6;
-  top: 42px;
-  left: 132px;
+  top: 18px;
+  right: 102px;
   display: flex;
-  width: 760px;
+  width: 226px;
   flex-direction: column;
-  gap: 14px;
-}
-.game-stage .panel-player-row {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
+  gap: 12px;
 }
 .game-stage .pcard {
   position: relative;
-  flex: 0 0 226px;
+  flex: 0 0 66px;
   width: 226px;
   min-width: 226px;
   height: 66px;
@@ -1199,7 +1248,8 @@
   z-index: 5;
   top: 300px;
   left: 512px;
-  width: auto;
+  width: 248px;
+  height: 142px;
   padding: 0;
   transform: translate(-50%, -50%);
   border: 0;
@@ -1209,12 +1259,21 @@
 .game-stage .die {
   width: 54px;
   height: 54px;
-  padding: 8px;
+  border-radius: 0;
+  background: radial-gradient(circle at 30% 22%, #fffefb, #f3eadc 65%, #dccbb2);
+  box-shadow: 0 0 0 2px #b58348, inset 0 -4px 0 rgba(150,105,55,.25), 0 6px 0 #a06e36, 0 11px 14px rgba(0,0,0,.35);
+}
+.game-stage .die--empty {
   border-radius: 12px;
   background: radial-gradient(circle at 30% 22%, #fffefb, #f3eadc 65%, #dccbb2);
   box-shadow: 0 0 0 2px #b58348, inset 0 -4px 0 rgba(150,105,55,.25), 0 6px 0 #a06e36, 0 11px 14px rgba(0,0,0,.35);
 }
-.game-stage .dice-total { color: #ffe27a; font-size: 16px; }
+.game-stage .dice-total {
+  right: 5px;
+  bottom: 2px;
+  color: #ffe27a;
+  font-size: 16px;
+}
 .game-stage .panel-control-base {
   position: absolute;
   z-index: 5;
@@ -1248,10 +1307,10 @@
 }
 .game-stage .panel-actions .btn-roll {
   position: absolute;
-  top: 11px;
-  right: 2px;
-  width: 239px;
-  height: 247px;
+  top: 23px;
+  left: 315px;
+  width: 200px;
+  height: 216px;
   padding: 0;
   overflow: visible;
   border: 0;
@@ -1265,7 +1324,7 @@
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: fill;
 }
 .game-stage .panel-actions .act-hint,
 .game-stage .panel-actions .act-block:not(.act-block--roll) {
@@ -1337,20 +1396,9 @@
   font-size: 0;
   pointer-events: auto;
 }
-.game-stage .panel-tools .panel-tool-cards { top: 127px; left: 54px; width: 115px; height: 120px; }
-.game-stage .panel-tools .panel-tool-assets { top: 126px; left: 179px; width: 113px; height: 124px; }
-.game-stage .panel-tools .panel-tool-trade {
-  top: 16px;
-  right: 12px;
-  width: 42px;
-  height: 38px;
-  border: 2px solid #ffe28a;
-  border-radius: 12px;
-  background: linear-gradient(#6f4824, #392515);
-  color: #fff;
-  font-size: 18px;
-}
-.panel-tool-image { display: block; width: 100%; height: 100%; object-fit: contain; }
+.game-stage .panel-tools .panel-tool-cards { top: 115px; left: 73px; width: 120px; height: 122px; }
+.game-stage .panel-tools .panel-tool-assets { top: 123px; left: 190px; width: 114px; height: 118px; }
+.panel-tool-image { display: block; width: 100%; height: 100%; object-fit: fill; }
 .panel-tool-count {
   position: absolute;
   top: 1px;
@@ -1476,49 +1524,16 @@
   }
 }
 
-/* Dice motion and the shared roll/end-turn button. */
-.die--rolling {
-  animation: die-tumble .32s linear infinite !important;
-}
-.die--landed {
-  animation: die-land .35s ease-out;
-}
-@keyframes die-tumble {
-  0% { transform: rotate(0) translateY(0); }
-  25% { transform: rotate(90deg) translateY(-14px); }
-  50% { transform: rotate(180deg) translateY(0); }
-  75% { transform: rotate(270deg) translateY(-10px); }
-  100% { transform: rotate(360deg); }
-}
-@keyframes die-land {
-  0% { transform: scale(1.25) rotate(-12deg); }
-  60% { transform: scale(.94); }
-  100% { transform: none; }
-}
+/* Shared roll/end-turn button motion. */
 .game-stage .panel-actions .btn-roll:not(:disabled) .game-ui-icon {
   animation: roll-button-beat 1.3s ease-in-out infinite;
 }
 .game-stage .panel-actions .btn-roll--rolling .game-ui-icon {
   animation: roll-button-shake .16s linear infinite !important;
 }
-.game-stage .panel-actions .btn-roll--end .btn-roll-label {
-  position: absolute;
-  top: 43%;
-  left: 15%;
-  display: grid;
-  width: 70%;
-  min-height: 25%;
-  place-items: center;
-  border: 2px solid #ffd84d;
-  border-radius: 12px;
-  background: linear-gradient(#0b963d, #08742e);
-  box-shadow: inset 0 0 0 2px rgba(255,255,255,.25), 0 3px 5px rgba(0,0,0,.4);
-  color: #fff3a7;
-  font-size: 15px;
-  font-weight: 900;
-  line-height: 1;
-  text-shadow: 0 2px 2px rgba(0,0,0,.65);
-  white-space: nowrap;
+.game-stage .panel-actions .btn-roll--end { top: 23px; height: 216px; }
+.game-stage .panel-actions .btn-roll--end .game-ui-icon {
+  border-radius: 50%;
 }
 .game-stage .panel-actions .btn-bankruptcy {
   position: absolute;
@@ -1537,7 +1552,7 @@
   100% { transform: rotate(-4deg) scale(1.03); }
 }
 
-/* Fill the stage with an oblique/isometric board; zoom is controlled separately. */
+/* Top-down board fills the landscape stage height; zoom is controlled separately. */
 .game-stage .app-board-area {
   top: 0;
   left: 0;
@@ -1553,11 +1568,15 @@
   height: 100%;
   aspect-ratio: auto;
   overflow: hidden;
-  perspective: 1400px;
-  perspective-origin: 50% 50%;
+  perspective: none;
+}
+.game-stage .board-camera {
+  position: absolute;
+  inset: 0;
+  transform-origin: top left;
 }
 .game-stage .board-outer {
-  top: calc(50% - var(--board-offset-y, 0px));
+  top: 50%;
   left: 50%;
   width: 808px;
   height: 808px;
@@ -1569,47 +1588,9 @@
 .game-stage .board-frame {
   transform-style: preserve-3d;
 }
-.game-stage .board-zoom-controls {
-  position: absolute;
-  z-index: 3;
-  top: 50%;
-  right: 18px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  padding: 8px;
-  border: 2px solid rgba(255, 226, 138, .85);
-  border-radius: 16px;
-  background: rgba(43, 26, 10, .82);
-  box-shadow: 0 5px 14px rgba(0,0,0,.38);
-  transform: translateY(-50%);
-}
-.game-stage .board-zoom-controls button {
-  display: grid;
-  width: 38px;
-  height: 38px;
-  place-items: center;
-  border: 2px solid #f4d36a;
-  border-radius: 11px;
-  background: linear-gradient(#815726, #503218);
-  color: #fff2bd;
-  font: 800 24px/1 "Trebuchet MS", sans-serif;
-  cursor: pointer;
-  pointer-events: auto;
-}
-.game-stage .board-zoom-controls button:active { transform: scale(.94); }
-.game-stage .board-zoom-controls output {
-  min-width: 38px;
-  color: #ffe28a;
-  font-size: 10px;
-  font-weight: 800;
-  text-align: center;
-}
-.game-stage .board-zoom-controls .board-zoom-reset { font-size: 21px; }
-
 /* Player banners follow the rounded, layered cards in the HTML reference. */
 .game-stage .panel { pointer-events: none; }
+.game-stage .panel-settings,
 .game-stage .panel-head > button,
 .game-stage .glog,
 .game-stage .panel-log-reopen,
@@ -1619,7 +1600,7 @@
   pointer-events: auto;
 }
 .game-stage .pcard {
-  flex: 0 0 226px;
+  flex: 0 0 66px;
   width: 226px;
   min-width: 226px;
   height: 66px;
@@ -1751,31 +1732,20 @@
   height: 100%;
   pointer-events: none;
 }
-.game-stage .asset-owner {
+.game-stage .asset-window::before {
   position: absolute;
   z-index: 1;
   top: 11.5%;
-  left: 27.5%;
-  display: flex;
-  width: 45%;
-  height: 10%;
-  align-items: center;
-  gap: 7px;
-  overflow: hidden;
-  color: #f5e4cc;
-  font-size: clamp(10px, 1.4vw, 15px);
-  font-weight: 700;
-  text-shadow: 0 1px 1px rgba(0,0,0,.65);
+  left: 25.5%;
+  width: 48%;
+  height: 12%;
+  border: 1px solid rgba(47, 19, 8, .8);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #4a210f, #622e17 52%, #4a1f10);
+  box-shadow: inset 0 3px 8px rgba(0,0,0,.45);
+  content: "";
+  pointer-events: none;
 }
-.game-stage .asset-owner img {
-  width: auto;
-  height: 100%;
-  aspect-ratio: 1;
-  border: 2px solid #edc05c;
-  border-radius: 50%;
-  object-fit: cover;
-}
-.game-stage .asset-owner span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .game-stage .asset-window-close {
   position: absolute;
   z-index: 2;
@@ -1805,14 +1775,14 @@
 }
 .game-stage .asset-money { top: 14%; left: 36.2%; }
 .game-stage .asset-count {
-  bottom: 2.5%;
-  left: 5.9%;
-  width: 23.3%;
+  bottom: 7%;
+  left: 7.8%;
+  width: 25%;
   text-align: center;
 }
 .game-stage .asset-value {
-  right: 6.6%;
-  bottom: 2.5%;
+  right: 5%;
+  bottom: 7%;
   width: 38.2%;
   text-align: center;
 }

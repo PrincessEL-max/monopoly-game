@@ -2,7 +2,7 @@
 /* ================= LAYAR BERMAIN ONLINE (LOBI) ================= */
 const L={srv:{name:'INDONESIA',ping:24},total:5842,active:2430,
   friends:[{id:'u1',name:'Andi',online:true},{id:'u2',name:'Budi',online:true},{id:'u3',name:'Sari',online:true}],
-  maps:['Peta Nusantara','Peta Dunia','Peta Kota'],mi:0,pls:[2,3,4],pi:2};
+  maps:['Peta Nusantara','Peta Dunia','Peta Kota','Peta Nusantara Ringkas'],mi:0,pls:[2,3,4],pi:2};
 const nf=n=>Number(n).toLocaleString('id-ID');
 function fire(name,detail,msg){
   window.dispatchEvent(new CustomEvent('menu:'+name,{detail}));

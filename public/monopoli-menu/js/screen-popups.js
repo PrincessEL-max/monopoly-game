@@ -57,11 +57,11 @@ const MONEYS3=[200000,250000,300000], TURNS=[15,30,45], kfmt=n=>'Rp '+(n/1000)+'
 function cRender(){
   const box=$q('#cChips'); box.innerHTML='';
   const add=(b,c,t,on,fn)=>{ const e=mkBtn('ch '+c+(on?' on':''),t,b,()=>{sfx(520);fn();cRender()}); box.appendChild(e); };
-  box.insertAdjacentHTML('beforeend','<i class="seg" style="left:612px;top:351px;width:232px;height:38px"></i><i class="seg" style="left:612px;top:398px;width:232px;height:38px"></i>');
-  ['Publik','Privat'].forEach((t,i)=>add([634+108*i,181,98,35],'',t,R.type===t,()=>R.type=t));
-  [2,3,4].forEach((n,i)=>add([672+57*i,258,48,38],'gy',n,R.max===n,()=>R.max=n));
-  MONEYS3.forEach((m,i)=>add([615+77*i,354,73,32],'sg',kfmt(m),R.money===m,()=>R.money=m));
-  TURNS.forEach((m,i)=>add([615+77*i,401,73,32],'sg',m+'d',R.turn===m,()=>R.turn=m));
+  box.insertAdjacentHTML('beforeend','<i class="seg" style="left:676px;top:351px;width:208px;height:38px"></i><i class="seg" style="left:676px;top:398px;width:208px;height:38px"></i>');
+  ['Publik','Privat'].forEach((t,i)=>add([658+108*i,171,98,35],'',t,R.type===t,()=>R.type=t));
+  [2,3,4].forEach((n,i)=>add([712+57*i,251,48,38],'gy',n,R.max===n,()=>R.max=n));
+  MONEYS3.forEach((m,i)=>add([692+65*i,355,62,30],'sg',kfmt(m),R.money===m,()=>R.money=m));
+  TURNS.forEach((m,i)=>add([692+65*i,402,62,30],'sg',m+'d',R.turn===m,()=>R.turn=m));
   $q('#cType').innerHTML='Tipe: <b class="'+(R.type==='Publik'?'gr':'or')+'">'+R.type+'</b>';
   $q('#cMapT').textContent=$q('#cMapB').textContent=MAPS[R.map].n; $q('#cMapImg').style.filter=MAPS[R.map].f;
 }

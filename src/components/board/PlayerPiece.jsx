@@ -19,9 +19,7 @@ import PieceModel from './PieceModel';
 
 const PIECE_SIZE = 46;          // diameter bidak (px)
 const STEP_MS = ANIMATION.PIECE_MOVE_DURATION; // ms per petak
-const TOTAL_SQUARES = 40;
-
-const PlayerPiece = ({ player, resolveCenter, offset = { dx: 0, dy: 0 }, color }) => {
+const PlayerPiece = ({ player, resolveCenter, routeIds, offset = { dx: 0, dy: 0 }, color }) => {
   const fmt = (n) => n?.toLocaleString('id-ID') ?? '0';
 
   // Posisi yang sedang DITAMPILKAN (bisa tertinggal dari player.position saat animasi)
@@ -35,10 +33,11 @@ const PlayerPiece = ({ player, resolveCenter, offset = { dx: 0, dy: 0 }, color }
     const from = prevPosRef.current;
     if (target === from) return;
 
-    // Hitung jumlah langkah maju (searah jarum jam, modulo 40).
-    // Lompatan kartu mundur / "go to jail" tetap dianimasikan sebagai
-    // perpindahan langsung (1 langkah) agar tidak memutar seluruh papan.
-    const forwardSteps = (target - from + TOTAL_SQUARES) % TOTAL_SQUARES;
+    const fromIndex = routeIds.indexOf(from);
+    const targetIndex = routeIds.indexOf(target);
+    const forwardSteps = fromIndex < 0 || targetIndex < 0
+      ? Infinity
+      : (targetIndex - fromIndex + routeIds.length) % routeIds.length;
     const isNormalMove = forwardSteps > 0 && forwardSteps <= 12;
 
     clearTimeout(timerRef.current);
@@ -51,10 +50,11 @@ const PlayerPiece = ({ player, resolveCenter, offset = { dx: 0, dy: 0 }, color }
     }
 
     // Animasi melangkah satu petak setiap STEP_MS
-    let current = from;
+    let currentIndex = fromIndex;
     setHopping(true);
     const stepOnce = () => {
-      current = (current + 1) % TOTAL_SQUARES;
+      currentIndex = (currentIndex + 1) % routeIds.length;
+      const current = routeIds[currentIndex];
       setShownPos(current);
       if (current === target) {
         setHopping(false);
@@ -66,7 +66,7 @@ const PlayerPiece = ({ player, resolveCenter, offset = { dx: 0, dy: 0 }, color }
     timerRef.current = setTimeout(stepOnce, STEP_MS);
 
     return () => clearTimeout(timerRef.current);
-  }, [player.position]);
+  }, [player.position, routeIds]);
 
   const center = resolveCenter(shownPos);
   const cx = center.x + offset.dx;
