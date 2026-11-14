@@ -4,8 +4,12 @@
 <meta charset="utf-8">
 <title>Monopoli Indonesia</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/page.css">
 <link rel="stylesheet" href="css/ui.css">
+<link rel="stylesheet" href="css/save-option.css">
 </head>
 <body>
 <div id="menu-root">
@@ -109,13 +113,39 @@
  <button class="hr a" id="fBack" aria-label="Kembali" style="--r:34px;left:390px;top:455px;width:250px;height:76px"></button>
  <button class="hr a" id="fX" aria-label="Tutup" style="--r:50%;left:887px;top:43px;width:82px;height:72px"></button>
 </div>
-</div></div>
-<div class="ov" id="opt"><div class="card">
-  <h2>Option</h2>
-  <div class="row">Musik<button class="sw on" data-k="music" aria-label="Musik"></button></div>
-  <div class="row">Efek suara<button class="sw on" data-k="sfx" aria-label="Efek suara"></button></div>
-  <div class="row">Getar<button class="sw on" data-k="vibrate" aria-label="Getar"></button></div>
-  <button class="close" id="optClose">Tutup</button>
+ <div class="sc sx" id="pS" style="--w:1887px;--h:1298px;--k:0.6317;left:204px;top:40px">
+  <div class="o" style="left:-353px;top:-81px">
+   <img class="bg2" data-s="s_dlg" style="left:353px;top:81px;width:1887px;height:1298px" alt="">
+   <div id="sSl" class="a" style="left:0;top:0;width:0;height:0"></div>
+   <button class="hr a" id="sX" aria-label="Tutup" style="--r:50%;left:2118px;top:176px;width:112px;height:112px"></button>
+   <button class="hr a" id="sBack" aria-label="Kembali" style="--r:80px;left:1050px;top:1200px;width:478px;height:170px"></button>
+  </div>
+ </div>
+ <div class="sc sx" id="pO" style="--w:1481px;--h:1055px;--k:0.7773;left:224px;top:40px">
+  <div class="o" style="left:-554px;top:-195px">
+   <img class="bg2" data-s="o_dlg" style="left:554px;top:195px;width:1481px;height:1055px" alt="">
+   <button class="tg a" id="oMusic" style="left:1056px;top:563px;width:180px;height:87px"></button>
+   <button class="tg a" id="oSfx" style="left:1056px;top:728px;width:180px;height:87px"></button>
+   <button class="lg a" id="oLang" aria-label="Bahasa" style="left:1328px;top:582px;width:567px;height:98px"><img id="oFlag" alt=""><span id="oLangN"></span></button>
+   <div class="gseg a" id="oGfx" style="left:1328px;top:772px;width:567px;height:96px"></div>
+   <div class="llist a" id="oLangList" style="left:1328px;top:684px;width:567px"></div>
+   <button class="hr a" id="oHow" aria-label="Cara Bermain" style="--r:50px;left:657px;top:988px;width:386px;height:155px"></button>
+   <button class="hr a" id="oContact" aria-label="Hubungi Kami" style="--r:50px;left:1085px;top:988px;width:385px;height:155px"></button>
+   <button class="hr a" id="oBack" aria-label="Kembali" style="--r:50px;left:1508px;top:988px;width:414px;height:155px"></button>
+   <button class="hr a" id="oX" aria-label="Tutup" style="--r:30px;left:1898px;top:232px;width:127px;height:125px"></button>
+  </div>
+ </div>
+ <div class="sc sx" id="pK" style="--w:1890px;--h:1272px;--k:0.6447;left:191px;top:40px">
+  <div class="o" style="left:-350px;top:-104px">
+   <img class="bg2" data-s="k_dlg" style="left:350px;top:104px;width:1890px;height:1272px" alt="">
+   <input id="kEmail" class="kf a" type="email" maxlength="80" autocomplete="email" spellcheck="false" aria-label="Email Anda" placeholder="Tulis email Anda…" style="left:1356px;top:535px;width:722px;height:88px">
+   <textarea id="kMsg" class="kf a" maxlength="1000" aria-label="Pesan atau masukan" placeholder="Tulis pesan, saran, atau keluhan Anda di sini…" style="left:1356px;top:745px;width:722px;height:337px"></textarea>
+   <button class="hr a" id="kWa" aria-label="Chat WhatsApp" style="--r:60px;left:528px;top:817px;width:669px;height:138px"></button>
+   <button class="hr a" id="kMail" aria-label="Kirim Email" style="--r:60px;left:528px;top:993px;width:669px;height:138px"></button>
+   <button class="hr a" id="kSend" aria-label="Kirim" style="--r:90px;left:1570px;top:1165px;width:505px;height:195px"></button>
+   <button class="hr a" id="kX" aria-label="Tutup" style="--r:30px;left:2122px;top:178px;width:103px;height:107px"></button>
+  </div>
+ </div>
 </div></div>
 <div id="toast"></div>
 <div id="rot">Putar perangkatmu ke mode landscape 📱↔️</div>
@@ -126,6 +156,8 @@
 <script src="js/screen-setup.js"></script>
 <script src="js/screen-lobby.js"></script>
 <script src="js/screen-popups.js"></script>
+<script src="js/config.js"></script>
+<script src="js/save-option.js"></script>
 <script src="js/game-bridge.js"></script>
 </body>
 </html>

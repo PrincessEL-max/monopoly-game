@@ -15,7 +15,8 @@
 // (komplex harus dikuasai penuh + bangun merata), selaras dgn AI.
 // ============================================================
 
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useRef, useState, useEffect } from 'react';
+import '../../styles/kartu-ui.css';
 import DiceDisplay from './DiceDisplay';
 import PlayerCard from './PlayerCard';
 import GameLog from './GameLog';
@@ -58,6 +59,9 @@ export default function ControlPanel({ game, difficulty, onQuit, sound }) {
   const [logOpen, setLogOpen] = useState(true);
   const [diceRolling, setDiceRolling] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const powerUpCount = (currentPlayer?.powerUps || [])
+    .filter((card) => POWER_UP_UI[card.action]).length;
+  const closeCards = useCallback(() => setCardsOpen(false), []);
   const isAI = !!currentPlayer?.isAI;
   const raising = waitingFor === 'RAISE_FUNDS';
 
@@ -192,12 +196,6 @@ export default function ControlPanel({ game, difficulty, onQuit, sound }) {
 
   return (
     <aside className={`panel ${players.length > 3 ? 'panel--many-players' : ''}`}>
-      <img
-        className="panel-control-base"
-        src={MILLIONAIRE_UI_ASSETS.controlBase}
-        alt=""
-        draggable={false}
-      />
       <div className="panel-head">
         <div className="panel-turn">
           <span className="panel-turn-label">Giliran</span>
@@ -260,45 +258,44 @@ export default function ControlPanel({ game, difficulty, onQuit, sound }) {
           game={game}
           onUse={usePowerUp}
           disabled={isAI}
+          onClose={closeCards}
         />
       )}
 
       {/* ── TOOLS: Kelola Properti ────────────────────────────── */}
-      {!isAI && (
-        <div className="panel-tools">
-          <button
-            className={`btn btn-ghost btn-sm panel-tool-cards ${cardsOpen ? 'btn-tool--on' : ''}`}
-            disabled={!toolsEnabled}
-            onClick={() => setCardsOpen((v) => !v)}
-            aria-label="Kartu Saya"
-            title="Kartu Saya"
-          >
-            <img
-              className="panel-tool-image"
-              src={MILLIONAIRE_UI_ASSETS.cards}
-              alt=""
-              draggable={false}
-            />
-            {!!currentPlayer.powerUps?.length && (
-              <span className="panel-tool-count">{currentPlayer.powerUps.length}</span>
-            )}
-          </button>
-          <button
-            className={`btn btn-ghost btn-sm panel-tool-assets ${manageOpen ? 'btn-tool--on' : ''}`}
-            disabled={!toolsEnabled}
-            onClick={() => setManageOpen((v) => !v)}
-            aria-label="Aset Saya"
-            title="Aset Saya"
-          >
-            <img
-              className="panel-tool-image"
-              src={MILLIONAIRE_UI_ASSETS.assets}
-              alt=""
-              draggable={false}
-            />
-          </button>
-        </div>
-      )}
+      <div className="panel-tools">
+        <button
+          className={`btn btn-ghost btn-sm panel-tool-cards ${cardsOpen ? 'btn-tool--on' : ''}`}
+          disabled={!toolsEnabled}
+          onClick={() => setCardsOpen((v) => !v)}
+          aria-label="Kartu Saya"
+          title="Kartu Saya"
+        >
+          <img
+            className="panel-tool-image"
+            src={MILLIONAIRE_UI_ASSETS.cards}
+            alt=""
+            draggable={false}
+          />
+          {!!powerUpCount && (
+            <span className="panel-tool-count">{powerUpCount}</span>
+          )}
+        </button>
+        <button
+          className={`btn btn-ghost btn-sm panel-tool-assets ${manageOpen ? 'btn-tool--on' : ''}`}
+          disabled={!toolsEnabled}
+          onClick={() => setManageOpen((v) => !v)}
+          aria-label="Aset Saya"
+          title="Aset Saya"
+        >
+          <img
+            className="panel-tool-image"
+            src={MILLIONAIRE_UI_ASSETS.assets}
+            alt=""
+            draggable={false}
+          />
+        </button>
+      </div>
 
       {manageOpen && !isAI && (
         <ManagePanel
@@ -581,11 +578,14 @@ const POWER_UP_LABELS = {
   power_ticket_station: 'Tiket perjalanan',
 };
 
-function PowerUpPanel({ player, game, onUse, disabled }) {
+function PowerUpPanel({ player, game, onUse, disabled, onClose }) {
   const [dieChoice, setDieChoice] = useState('6');
   const [squareChoice, setSquareChoice] = useState('');
-  const cards = player?.powerUps || [];
-  if (!cards.length) return null;
+  const [zoomCard, setZoomCard] = useState(null);
+  const [toastMessage, setToastMessage] = useState('');
+  const toastTimer = useRef(null);
+  const cards = (player?.powerUps || []).filter((card) => POWER_UP_UI[card.action]);
+  const totalCards = cards.length;
 
   const destinations = getSquaresForMap(game.settings?.map).filter((square) =>
     square.type === 'airport' || square.type === 'utility'
@@ -603,7 +603,35 @@ function PowerUpPanel({ player, game, onUse, disabled }) {
       'power_free_house', 'power_double_rent', 'power_extra_turn', 'power_ticket_station',
     ].includes(action) && !game.waitingFor;
   };
+  const showToast = (message) => {
+    setToastMessage(message);
+    window.clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => setToastMessage(''), 1800);
+  };
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key !== 'Escape') return;
+      if (zoomCard) setZoomCard(null);
+      else onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.clearTimeout(toastTimer.current);
+    };
+  }, [onClose, zoomCard]);
+  const reasonUnavailable = (action) => {
+    if (disabled) return 'Kartu hanya bisa digunakan saat giliranmu.';
+    if (action === 'power_discount_next_buy') return 'Gunakan saat memutuskan pembelian properti.';
+    if (action === 'power_insurance') return 'Asuransi belum dapat digunakan sekarang.';
+    if (['power_golden_die', 'power_reroll'].includes(action)) return 'Gunakan sebelum mengocok dadu.';
+    return 'Kartu ini belum bisa digunakan sekarang.';
+  };
   const activate = (card) => {
+    if (disabled || !canUse(card.action)) {
+      showToast(reasonUnavailable(card.action));
+      return;
+    }
     const payload = { cardId: card.id };
     if (card.action === 'power_golden_die') payload.choice = Number(dieChoice);
     if (card.action === 'power_ticket_station') {
@@ -613,47 +641,134 @@ function PowerUpPanel({ player, game, onUse, disabled }) {
   };
 
   return (
-    <section className="power-ups" aria-label="Power Up">
-      <div className="power-ups-title">Power Up</div>
-      {cards.map((card) => (
-        <div className="power-up-row" key={card.id}>
-          <div className="power-up-info">
-            <strong>{card.name || POWER_UP_LABELS[card.action] || 'Power Up'}</strong>
-            <span>{card.text}</span>
-          </div>
-          <div className="power-up-controls">
-            {card.action === 'power_golden_die' && (
-              <select
-                aria-label="Pilih angka dadu emas"
-                value={dieChoice}
-                onChange={(event) => setDieChoice(event.target.value)}
+    <div
+      className="kui-ov kui-show"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Kartu Power Up Saya"
+      onClick={(event) => {
+        if (event.target === event.currentTarget || event.target.classList.contains('kui-wrap')) onClose();
+      }}
+    >
+      <div className="kui-wrap">
+        <img className="kui-frame" src="/millionaire-game/assets/kartu-ui/frame/kartu_frame.webp" alt="" draggable={false} />
+        <div className="kui-txt kui-cap">Power Up: <b>{totalCards} Kartu</b></div>
+        <div className="kui-txt kui-tot">Total Kartu: <b>{totalCards}</b></div>
+        <button className="kui-x" type="button" aria-label="Tutup kartu" onClick={onClose} />
+        <div className="kui-scroll" aria-label="Daftar kartu Power Up">
+          {cards.length ? cards.map((card, index) => {
+            const config = POWER_UP_UI[card.action];
+            const usable = !disabled && canUse(card.action);
+            return (
+              <article
+                className="kui-tile"
+                key={`${card.id}-${index}`}
+                style={{ '--c1': config.c1, '--c2': config.c2 }}
               >
-                {[1, 2, 3, 4, 5, 6].map((value) => (
-                  <option key={value} value={value}>{value}</option>
-                ))}
-              </select>
-            )}
-            {card.action === 'power_ticket_station' && (
-              <select
-                aria-label="Pilih tujuan tiket"
-                value={squareChoice || destinations[0]?.id || ''}
-                onChange={(event) => setSquareChoice(event.target.value)}
-              >
-                {destinations.map((square) => (
-                  <option key={square.id} value={square.id}>{square.name}</option>
-                ))}
-              </select>
-            )}
-            <button
-              className="btn btn-gold btn-sm"
-              disabled={disabled || !canUse(card.action)}
-              onClick={() => activate(card)}
-            >
-              Gunakan
-            </button>
-          </div>
+                <div className="kui-h">{card.name || POWER_UP_LABELS[card.action] || 'Power Up'}</div>
+                <button
+                  type="button"
+                  className="kui-a"
+                  aria-label={`Perbesar kartu ${card.name || config.name}`}
+                  onClick={() => setZoomCard({ card, config })}
+                >
+                  <img
+                    src={`/millionaire-game/assets/kartu-ui/cards/art_${config.image}.webp`}
+                    alt=""
+                    draggable={false}
+                  />
+                </button>
+                <div className="kui-d">{(card.text || config.description).replace(/^Power Up:\s*/i, '')}</div>
+                {card.action === 'power_golden_die' && (
+                  <select
+                    className="kui-choice"
+                    aria-label="Pilih angka dadu emas"
+                    value={dieChoice}
+                    onChange={(event) => setDieChoice(event.target.value)}
+                  >
+                    {[1, 2, 3, 4, 5, 6].map((value) => (
+                      <option key={value} value={value}>{value}</option>
+                    ))}
+                  </select>
+                )}
+                {card.action === 'power_ticket_station' && (
+                  <select
+                    className="kui-choice"
+                    aria-label="Pilih tujuan tiket"
+                    value={squareChoice || destinations[0]?.id || ''}
+                    onChange={(event) => setSquareChoice(event.target.value)}
+                  >
+                    {destinations.map((square) => (
+                      <option key={square.id} value={square.id}>{square.name}</option>
+                    ))}
+                  </select>
+                )}
+                <div className="kui-n">Jumlah: 1</div>
+                <button
+                  className={`kui-use${usable ? '' : ' kui-off'}`}
+                  type="button"
+                  aria-label={`Gunakan ${card.name || config.name}`}
+                  aria-disabled={!usable}
+                  onClick={() => activate(card)}
+                >
+                  <img src="/millionaire-game/assets/kartu-ui/frame/kartu_gunakan.png" alt="Gunakan" draggable={false} />
+                </button>
+              </article>
+            );
+          }) : (
+            <div className="kui-empty">Belum ada Power Up tersimpan.</div>
+          )}
         </div>
-      ))}
-    </section>
+        {zoomCard && (
+          <div className="kui-zoom kui-show" onClick={() => setZoomCard(null)}>
+            <div>
+              {zoomCard.card.name || zoomCard.config.name}
+              <small>{(zoomCard.card.text || zoomCard.config.description).replace(/^Power Up:\s*/i, '')}</small>
+              <img
+                src={`/millionaire-game/assets/kartu-ui/cards/${zoomCard.config.image}.webp`}
+                alt={zoomCard.card.name || zoomCard.config.name}
+                draggable={false}
+              />
+            </div>
+          </div>
+        )}
+        <div className={`kui-toast${toastMessage ? ' kui-on' : ''}`} role="status">{toastMessage}</div>
+      </div>
+    </div>
   );
 }
+
+const POWER_UP_UI = {
+  power_discount_next_buy: {
+    name: 'Diskon Properti', image: 'dana_18', description: 'Beli satu properti dengan diskon 50%.',
+    c1: '#c25ad8', c2: '#7e2a9c',
+  },
+  power_free_house: {
+    name: 'Gratis Bangun', image: 'dana_19', description: 'Bangun 1 rumah tanpa bayar.',
+    c1: '#46b856', c2: '#23803a',
+  },
+  power_double_rent: {
+    name: 'Sewa Ganda', image: 'dana_20', description: 'Sewa berikutnya yang kamu terima menjadi 2x lipat.',
+    c1: '#ee5a50', c2: '#b02a28',
+  },
+  power_insurance: {
+    name: 'Asuransi', image: 'dana_21', description: 'Batalkan 1 denda, pajak, atau kartu bayar.',
+    c1: '#22b8ac', c2: '#0f7f78',
+  },
+  power_golden_die: {
+    name: 'Dadu Emas', image: 'kes_18', description: 'Pilih angka satu dadu pada lemparan berikutnya.',
+    c1: '#f5c820', c2: '#c98c0a',
+  },
+  power_reroll: {
+    name: 'Lempar Ulang', image: 'kes_19', description: 'Ulangi lemparan dadumu satu kali.',
+    c1: '#f48a2a', c2: '#c25312',
+  },
+  power_extra_turn: {
+    name: 'Giliran Ganda', image: 'kes_20', description: 'Langsung main sekali lagi.',
+    c1: '#ec5fa6', c2: '#b02a74',
+  },
+  power_ticket_station: {
+    name: 'Tiket Pesawat', image: 'kes_21', description: 'Pindah ke bandara atau stasiun mana pun.',
+    c1: '#6a78f2', c2: '#3a43b8',
+  },
+};

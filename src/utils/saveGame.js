@@ -73,10 +73,23 @@ export const peekSave = () => {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (parsed.schema !== SCHEMA || !parsed.snapshot?.players?.length) return null;
+    const snapshot = parsed.snapshot;
+    const mapNames = {
+      nusantara: 'Peta Nusantara',
+      'nusantara-compact': 'Peta Nusantara Ringkas',
+      dunia: 'Peta Dunia',
+      kota: 'Peta Kota',
+    };
+    const map = snapshot.settings?.map || 'nusantara';
+    const playerWithMoney = snapshot.players.find((player) => !player.isAI) || snapshot.players[0];
+    const turnCount = snapshot.turnCount ?? 0;
     return {
       savedAt: parsed.savedAt,
-      turnCount: parsed.snapshot.turnCount ?? 0,
-      players: parsed.snapshot.players.map((p) => ({ name: p.name, piece: p.piece })),
+      map,
+      mapName: mapNames[map] || map,
+      round: Math.floor(turnCount / snapshot.players.length) + 1,
+      money: playerWithMoney.money ?? 0,
+      players: snapshot.players.length,
     };
   } catch {
     return null;

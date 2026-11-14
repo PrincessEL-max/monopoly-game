@@ -1,0 +1,76 @@
+/* ======================================================================
+   kartu-ui.css — popup "Kartu Saya" + tombol Kartu
+   Semua class berawalan "kui-" supaya tidak bentrok dengan CSS game kamu.
+   Popup dirancang pada kanvas 1024 × 576 (di-scale otomatis oleh js/kartu-ui.js).
+   ====================================================================== */
+
+/* ---------- tombol Kartu (di samping Aset Saya) ---------- */
+.kui-btn{position:relative;display:block;width:115px;padding:0;margin:0;border:0;background:none;cursor:pointer;
+  font-family:"Fredoka","Baloo 2","Trebuchet MS",system-ui,sans-serif;-webkit-tap-highlight-color:transparent;transition:transform .12s,filter .15s}
+.kui-btn.kui-fixed{position:fixed;right:210px;bottom:16px;z-index:9000}   /* dipakai bila tombol ditaruh di <body> */
+.kui-btn img{display:block;width:100%;height:auto;pointer-events:none;-webkit-user-drag:none}
+.kui-btn:hover{transform:scale(1.06);filter:brightness(1.08)}
+.kui-btn:active{transform:scale(.96) translateY(2px);filter:brightness(.9)}
+.kui-btn:focus-visible{outline:3px solid #fff;outline-offset:3px;border-radius:50%}
+.kui-badge{position:absolute;right:-2px;top:-2px;min-width:24px;height:24px;padding:0 5px;border-radius:12px;background:#e8322a;border:2px solid #fff;
+  color:#fff;font-size:13px;font-weight:700;display:none;place-items:center;pointer-events:none}
+
+/* ---------- overlay & kanvas ---------- */
+.kui-ov{position:absolute;inset:0;z-index:30;display:none;background:rgba(20,10,0,.55);overflow:hidden;
+  pointer-events:auto;
+  font-family:"Fredoka","Baloo 2","Trebuchet MS",system-ui,sans-serif;color:#fff;-webkit-user-select:none;user-select:none}
+.kui-ov.kui-show{display:block}
+.kui-ov *{box-sizing:border-box}
+.kui-wrap{position:absolute;left:50%;top:50%;width:1024px;height:576px;transform:translate(-50%,-50%);
+  transform-origin:center;animation:kui-pop .25s}
+@keyframes kui-pop{from{opacity:0}}
+.kui-frame{position:absolute;left:140px;top:44px;width:744px;height:487px;display:block;pointer-events:none}
+.kui-txt{position:absolute;white-space:nowrap;text-align:center;font-weight:600;line-height:24px;color:#f5e4cc;text-shadow:0 1px 1px rgba(0,0,0,.55);pointer-events:none}
+.kui-txt b{color:#f2c24f;font-weight:700}
+.kui-cap{left:399px;width:219px;top:122px;font-size:17px}
+.kui-tot{left:646px;width:187px;top:487px;font-size:16px}
+.kui-x{position:absolute;left:838px;top:85px;width:42px;height:40px;border:0;border-radius:13px;background:transparent;padding:0;cursor:pointer;
+  transition:box-shadow .12s,background .12s,transform .1s}
+.kui-x:hover{background:rgba(255,255,255,.16);box-shadow:0 0 12px rgba(255,225,160,.85)}
+.kui-x:active{transform:scale(.93)}
+
+/* ---------- daftar kartu (scroll mendatar) ---------- */
+.kui-scroll{position:absolute;left:157px;top:160px;width:701px;height:316px;overflow-x:auto;overflow-y:hidden;display:flex;gap:13px;padding:7px 19px 0;
+  scrollbar-width:thin;scrollbar-color:#d9a13b rgba(0,0,0,.25);cursor:grab}
+.kui-scroll::-webkit-scrollbar{height:8px}
+.kui-scroll::-webkit-scrollbar-thumb{background:#d9a13b;border-radius:4px}
+.kui-scroll::-webkit-scrollbar-track{background:rgba(0,0,0,.25);border-radius:4px}
+.kui-scroll::after{content:"";flex:0 0 20px}
+.kui-empty{margin:auto;width:100%;padding-right:19px;text-align:center;color:#e9d3b0;font-size:19px;line-height:1.35;cursor:default}
+
+/* tile satu jenis kartu — warna lewat --c1 / --c2 */
+.kui-tile{flex:0 0 159px;height:301px;position:relative;display:flex;flex-direction:column;align-items:center;border-radius:15px;border:3px solid var(--c1);
+  background:linear-gradient(180deg,var(--c1),var(--c2) 158px,#f4e7d3 158px);box-shadow:0 6px 12px rgba(0,0,0,.45),inset 0 0 0 1.5px rgba(255,255,255,.35);
+  overflow:hidden;color:#5a1a10}
+.kui-h{height:36px;line-height:36px;font-weight:700;font-size:17px;white-space:nowrap;color:#fff;letter-spacing:-.2px;
+  -webkit-text-stroke:3px var(--c2);paint-order:stroke fill;text-shadow:0 2px 0 rgba(0,0,0,.35)}
+.kui-a{width:139px;height:114px;margin-top:2px;border-radius:9px;display:grid;place-items:center;cursor:zoom-in;
+  background:radial-gradient(circle at 50% 38%,var(--c1),var(--c2));box-shadow:inset 0 0 0 2px rgba(255,255,255,.28),inset 0 -10px 16px rgba(0,0,0,.25)}
+.kui-choice{width:139px;height:22px;margin-top:3px;padding:0 5px;border:1px solid rgba(0,0,0,.3);border-radius:5px;
+  background:#fff;color:#381b10;font:600 12px "Trebuchet MS",system-ui,sans-serif}
+.kui-a img{height:106px;width:auto;display:block;filter:drop-shadow(0 3px 4px rgba(0,0,0,.4));pointer-events:none;-webkit-user-drag:none}
+.kui-d{width:144px;height:42px;margin-top:7px;display:grid;place-items:center;text-align:center;font-size:12.2px;font-weight:600;line-height:1.15}
+.kui-n{margin-top:3px;font-size:15px;font-weight:700}
+.kui-use{margin-top:5px;width:129px;padding:0;border:0;background:none;cursor:pointer;transition:transform .1s,filter .15s}
+.kui-use img{width:100%;display:block;pointer-events:none;-webkit-user-drag:none}
+.kui-use:not(.kui-off):hover{filter:brightness(1.08)}
+.kui-use:not(.kui-off):active{transform:translateY(2px);filter:brightness(.9)}
+.kui-use.kui-off{cursor:not-allowed}
+.kui-use.kui-off img{filter:grayscale(.9) brightness(.85);opacity:.7}
+
+/* ---------- zoom kartu penuh & toast ---------- */
+.kui-zoom{position:absolute;inset:0;display:none;place-items:center;background:rgba(20,10,0,.82);cursor:pointer}
+.kui-zoom.kui-show{display:grid}
+.kui-zoom div{text-align:center;font-size:20px;font-weight:700;color:#ffe27a;text-shadow:0 2px 0 #000}
+.kui-zoom small{display:block;font-size:14px;font-weight:500;color:#fff;margin-top:2px}
+.kui-zoom img{display:block;height:352px;width:auto;margin:8px auto 0;filter:drop-shadow(0 14px 22px rgba(0,0,0,.55))}
+.kui-toast{position:absolute;left:50%;top:10px;transform:translate(-50%,8px);max-width:700px;padding:6px 16px;border-radius:14px;background:rgba(20,10,0,.9);
+  border:2px solid #d9a13b;font-size:14px;font-weight:600;color:#ffe9b8;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;white-space:nowrap}
+.kui-toast.kui-on{opacity:1;transform:translate(-50%,0)}
+
+@media (prefers-reduced-motion:reduce){.kui-wrap{animation:none}.kui-btn,.kui-x,.kui-use{transition:none}}

@@ -198,7 +198,9 @@ Object.assign(GameMenu,{
 });
 addEventListener('keydown',e=>{ if(e.key!=='Escape'||!$q('#pop').classList.contains('on')) return;
   if($q('#pQ').classList.contains('on')){ if(Q.phase==='search') $q('#qCancel').click(); }
-  else if($q('#pC').classList.contains('on')) $q('#cBack').click(); else if($q('#pR').classList.contains('on')) $q('#rDis').click(); else $q('#fBack').click(); });
+  else if($q('#pC').classList.contains('on')) $q('#cBack').click();
+  else if($q('#pR').classList.contains('on')) $q('#rDis').click();
+  else if($q('#pF').classList.contains('on')) $q('#fBack').click(); });
 document.querySelectorAll('#pop [data-s]').forEach(i=>i.src=ASSETS[i.dataset.s]);
 function fit3(){ $q('#stage3').style.setProperty('--s',Math.min(innerWidth/1600,innerHeight/900)); }
 addEventListener('resize',fit3); fit3();

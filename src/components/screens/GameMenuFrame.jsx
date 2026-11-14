@@ -6,14 +6,16 @@ const CHANNEL = 'monopoli-game-menu';
 const OUTBOUND_CHANNEL = 'monopoli-game-app';
 const DIFFICULTIES = { Mudah: 'easy', Sedang: 'medium', Sulit: 'hard' };
 
-export default function GameMenuFrame({ multiplayer, sound, onStartOffline, onContinue }) {
+export default function GameMenuFrame({
+  multiplayer, sound, onStartOffline, onContinue, onDeleteSave, saveSlots,
+}) {
   const frameRef = useRef(null);
   const handlerRef = useRef(null);
   const roomInviteCodeRef = useRef(new URLSearchParams(window.location.search).get('room'));
   const roomInviteHandledRef = useRef(false);
   const matchPollRef = useRef({ active: false, timer: null });
-  const latestRef = useRef({ multiplayer, sound, onStartOffline, onContinue });
-  latestRef.current = { multiplayer, sound, onStartOffline, onContinue };
+  const latestRef = useRef({ multiplayer, sound, onStartOffline, onContinue, onDeleteSave, saveSlots });
+  latestRef.current = { multiplayer, sound, onStartOffline, onContinue, onDeleteSave, saveSlots };
 
   const send = useCallback((type, detail) => {
     frameRef.current?.contentWindow?.postMessage(
@@ -86,6 +88,7 @@ export default function GameMenuFrame({ multiplayer, sound, onStartOffline, onCo
     try {
       switch (type) {
         case 'ready':
+          send('saves', current.saveSlots || []);
           syncSocial();
           if (game.room) syncRoom();
           if (roomInviteCodeRef.current && !roomInviteHandledRef.current) {
@@ -118,8 +121,17 @@ export default function GameMenuFrame({ multiplayer, sound, onStartOffline, onCo
             send('toast', 'Menunggu host memulai permainan...');
           }
           break;
-        case 'save':
-          current.onContinue();
+        case 'loadgame':
+          if (detail?.slot !== 1 || !current.onContinue()) {
+            send('toast', 'Data simpanan tidak tersedia.');
+          }
+          break;
+        case 'deletesave':
+          if (detail?.slot !== 1 || !current.onDeleteSave?.(detail.slot)) {
+            send('toast', 'Data simpanan tidak dapat dihapus.');
+            break;
+          }
+          send('saves', (current.saveSlots || []).filter((save) => save.slot !== detail.slot));
           break;
         case 'quick': {
           const result = await game.startMatchmaking({ name: defaultName, piece: defaultPiece });

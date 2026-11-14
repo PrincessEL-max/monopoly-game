@@ -12,7 +12,7 @@ import { useGameState } from './hooks/useGameState';
 import { useAI } from './hooks/useAI';
 import { useMultiplayer } from './hooks/useMultiplayer';
 import { useSound } from './hooks/useSound';
-import { saveGame, loadGame as loadSaved, clearSave } from './utils/saveGame';
+import { saveGame, loadGame as loadSaved, peekSave, clearSave } from './utils/saveGame';
 import ControlPanel from './components/ui/ControlPanel';
 import GameMenuFrame from './components/screens/GameMenuFrame';
 import EndScreen from './components/screens/EndScreen';
@@ -159,17 +159,26 @@ function GameRoot({ onRestart }) {
 
   // ── SETUP ──────────────────────────────────────────────────────
   if (game.phase === 'setup') {
+    const saveSummary = peekSave();
     return (
       <GameMenuFrame
         multiplayer={multiplayer}
         sound={sound}
+        saveSlots={saveSummary ? [{ slot: 1, ...saveSummary }] : []}
         onStartOffline={(setups, settings) => {
           clearSave();
           game.startGame(setups, settings);
         }}
         onContinue={() => {
           const snap = loadSaved();
-          if (snap) game.loadGame(snap);
+          if (!snap) return false;
+          game.loadGame(snap);
+          return true;
+        }}
+        onDeleteSave={(slot) => {
+          if (slot !== 1) return false;
+          clearSave();
+          return true;
         }}
       />
     );

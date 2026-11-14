@@ -57,7 +57,7 @@ function openLobby(){ ROOT.classList.add('setup'); $q('#ui').classList.add('off'
 function closeLobby(){ ROOT.classList.remove('setup'); $q('#ui').classList.remove('off'); $q('#lobby').classList.remove('on'); }
 $q('#lbBack').onclick=()=>{ sfx(380); closeLobby(); window.dispatchEvent(new CustomEvent('menu:back')); };
 addEventListener('keydown',e=>{ if(e.key!=='Escape'||!$q('#lobby').classList.contains('on')||$q('#pop').classList.contains('on')) return;
-  if($q('#addf').classList.contains('on')) $q('#addfNo').click(); else if(!$q('#opt').classList.contains('on')) $q('#lbBack').click(); });
+  if($q('#addf').classList.contains('on')) $q('#addfNo').click(); else $q('#lbBack').click(); });
 document.querySelectorAll('#lobby [data-s]').forEach(i=>i.src=ASSETS[i.dataset.s]);
 function fit2(){ $q('#stage2').style.setProperty('--s',Math.min(innerWidth/1600,innerHeight/900)); }
 addEventListener('resize',fit2); fit2(); lbRender(); lbFriends();

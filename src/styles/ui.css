@@ -1274,17 +1274,6 @@
   color: #ffe27a;
   font-size: 16px;
 }
-.game-stage .panel-control-base {
-  position: absolute;
-  z-index: 5;
-  top: calc(var(--stage-height, 576px) - 186.32px);
-  left: 660px;
-  width: 534px;
-  height: 274px;
-  transform: scale(.68);
-  transform-origin: top left;
-  pointer-events: none;
-}
 .game-stage .panel-actions {
   position: absolute;
   z-index: 9;
@@ -1307,10 +1296,10 @@
 }
 .game-stage .panel-actions .btn-roll {
   position: absolute;
-  top: 23px;
-  left: 315px;
-  width: 200px;
-  height: 216px;
+  top: 36px;
+  left: 308px;
+  width: 211px;
+  height: 207px;
   padding: 0;
   overflow: visible;
   border: 0;
@@ -1397,7 +1386,7 @@
   pointer-events: auto;
 }
 .game-stage .panel-tools .panel-tool-cards { top: 115px; left: 73px; width: 120px; height: 122px; }
-.game-stage .panel-tools .panel-tool-assets { top: 123px; left: 190px; width: 114px; height: 118px; }
+.game-stage .panel-tools .panel-tool-assets { top: 112px; left: 188px; width: 123px; height: 125px; }
 .panel-tool-image { display: block; width: 100%; height: 100%; object-fit: fill; }
 .panel-tool-count {
   position: absolute;
@@ -1531,7 +1520,7 @@
 .game-stage .panel-actions .btn-roll--rolling .game-ui-icon {
   animation: roll-button-shake .16s linear infinite !important;
 }
-.game-stage .panel-actions .btn-roll--end { top: 23px; height: 216px; }
+.game-stage .panel-actions .btn-roll--end { top: 36px; height: 207px; }
 .game-stage .panel-actions .btn-roll--end .game-ui-icon {
   border-radius: 50%;
 }
@@ -1732,20 +1721,6 @@
   height: 100%;
   pointer-events: none;
 }
-.game-stage .asset-window::before {
-  position: absolute;
-  z-index: 1;
-  top: 11.5%;
-  left: 25.5%;
-  width: 48%;
-  height: 12%;
-  border: 1px solid rgba(47, 19, 8, .8);
-  border-radius: 999px;
-  background: linear-gradient(180deg, #4a210f, #622e17 52%, #4a1f10);
-  box-shadow: inset 0 3px 8px rgba(0,0,0,.45);
-  content: "";
-  pointer-events: none;
-}
 .game-stage .asset-window-close {
   position: absolute;
   z-index: 2;
@@ -1773,17 +1748,17 @@
   text-shadow: 0 1px 1px rgba(0,0,0,.65);
   white-space: nowrap;
 }
-.game-stage .asset-money { top: 14%; left: 36.2%; }
+.game-stage .asset-money { top: 16%; left: 35.5%; }
 .game-stage .asset-count {
-  bottom: 7%;
+  bottom: 8.5%;
   left: 7.8%;
   width: 25%;
   text-align: center;
 }
 .game-stage .asset-value {
-  right: 5%;
-  bottom: 7%;
-  width: 38.2%;
+  right: 7%;
+  bottom: 8.5%;
+  width: 36%;
   text-align: center;
 }
 .game-stage .asset-money strong,

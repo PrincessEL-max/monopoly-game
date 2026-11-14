@@ -4,8 +4,8 @@
    SAMBUNGKAN KE GAME KAMU:
    GameMenu.on('offline', () => { ...mulai game offline... });
    GameMenu.on('online',  () => { ...buka lobi online...   });
-   GameMenu.on('save',    () => { ...simpan progres...     });
-   GameMenu.on('option',  () => { ... });  // modal bawaan tetap terbuka
+   GameMenu.on('save',    () => { ...buka data simpanan... });
+   GameMenu.on('option',  () => { ...buka pengaturan... });
    GameMenu.on('start', cfg => { ...mulai game dengan cfg... });
      cfg = { players:[{slot,type:'human'|'bot',difficulty}], map, mapName, startMoney, speed:'normal'|'cepat' }
      (juga: GameMenu.getSetup() dan event window 'menu:start' / 'menu:back')
@@ -37,7 +37,7 @@ GameMenu.toast = toast;
 let ac; function sfx(f=520){ if(!GameMenu.settings.sfx) return;
   try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator(),g=ac.createGain();o.type='triangle';o.frequency.value=f;
   g.gain.setValueAtTime(.12,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+.18);o.connect(g).connect(ac.destination);o.start();o.stop(ac.currentTime+.2)}catch(e){} }
-const demo={offline:()=>toast('Memulai permainan offline…'),online:()=>toast('Menghubungkan ke lobi online…'),save:()=>toast('Progres tersimpan ✔'),option:()=>$q('#opt').classList.add('on')};
+const demo={offline:()=>toast('Memulai permainan offline…'),online:()=>toast('Menghubungkan ke lobi online…'),save:()=>toast('Data simpanan belum tersedia'),option:()=>toast('Pengaturan belum tersedia')};
 function trigger(a){
   sfx({offline:600,online:660,save:520,option:440}[a]);
   if(GameMenu.settings.vibrate&&navigator.vibrate)try{navigator.vibrate(15)}catch(e){}
@@ -45,10 +45,7 @@ function trigger(a){
   if(a==='online'){ openLobby(); if(GameMenu._h.online) GameMenu._h.online(); return; }
   if(a==='offline'){ openSetup(); if(GameMenu._h.offline) GameMenu._h.offline(); return; }
   (GameMenu._h[a]||demo[a])();
-  if(a==='option'&&GameMenu._h[a])$q('#opt').classList.add('on');
 }
 document.querySelectorAll('.bt').forEach(b=>b.addEventListener('click',()=>trigger(b.dataset.a)));
-document.querySelectorAll('.sw').forEach(s=>s.addEventListener('click',()=>{s.classList.toggle('on');GameMenu.settings[s.dataset.k]=s.classList.contains('on');sfx(700);window.dispatchEvent(new CustomEvent('menu:settings',{detail:Object.assign({},GameMenu.settings)}))}));
-$q('#optClose').onclick=()=>{sfx(400);$q('#opt').classList.remove('on')};
 
 

@@ -6,9 +6,9 @@
   };
 
   const handlers = [
-    'offline', 'online', 'back', 'save', 'start', 'quick', 'quickcancel',
-    'quickfound', 'create', 'join', 'roominvite', 'roombot', 'roomremove',
-    'disband', 'invite', 'friendsearch', 'addfriend',
+    'offline', 'online', 'back', 'start', 'quick', 'quickcancel', 'quickfound',
+    'create', 'join', 'roominvite', 'roombot', 'roomremove', 'disband',
+    'invite', 'friendsearch', 'addfriend', 'loadgame', 'deletesave',
   ];
   handlers.forEach((name) => {
     GameMenu.on(name, (detail) => {
@@ -72,10 +72,14 @@
       case 'estimate':
         GameMenu.matchEstimate(message.detail.seconds);
         break;
+      case 'saves':
+        GameMenu.setSaves(message.detail || []);
+        break;
       default:
         break;
     }
   });
 
+  send('settings', GameMenu.settings);
   send('ready');
 })();

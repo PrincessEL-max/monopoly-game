@@ -55,7 +55,7 @@ $q('#go').onclick=()=>{
   const c=getSetup(); window.dispatchEvent(new CustomEvent('menu:start',{detail:c}));
   (GameMenu._h.start||(()=>toast('Memulai game: '+c.players.length+' pemain · '+c.mapName)))(c);
 };
-addEventListener('keydown',e=>{ if(e.key==='Escape'){ if($q('#opt').classList.contains('on'))$q('#optClose').click(); else if($q('#setup').classList.contains('on'))$q('#bkBtn').click(); }});
+addEventListener('keydown',e=>{ if(e.key==='Escape'&&$q('#setup').classList.contains('on'))$q('#bkBtn').click(); });
 document.querySelectorAll('#setup [data-s]').forEach(i=>i.src=ASSETS[i.dataset.s]);
 function fit(){ $q('#stage').style.setProperty('--s',Math.min(innerWidth/1600,innerHeight/900)); }
 addEventListener('resize',fit); fit(); renderSlots(); renderMap(); renderRules();
