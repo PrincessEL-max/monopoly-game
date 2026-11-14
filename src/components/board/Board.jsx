@@ -150,6 +150,31 @@ const Board = ({ gameState, zoom: controlledZoom, onZoomChange }) => {
   const routeIds = useMemo(() => squares.map((square) => square.id), [squares]);
   const boardHeight = 2 * C + sideCount * SSQW;
   const boardOuterHeight = boardHeight + 48;
+  const clampCameraOffset = (offset, scale, viewport) => {
+    const boardWidth = BOARD_OUTER_WIDTH * scale;
+    const boardScaledHeight = boardOuterHeight * scale;
+    const boardLeft = BOARD_RIGHT_EDGE - boardWidth;
+    const boardRight = BOARD_RIGHT_EDGE;
+    const boardTop = (viewport.clientHeight - boardScaledHeight) / 2;
+    const boardBottom = boardTop + boardScaledHeight;
+    const horizontalMin = boardWidth >= viewport.clientWidth
+      ? viewport.clientWidth - boardRight
+      : -boardLeft;
+    const horizontalMax = boardWidth >= viewport.clientWidth
+      ? -boardLeft
+      : viewport.clientWidth - boardRight;
+    const verticalMin = boardScaledHeight >= viewport.clientHeight
+      ? viewport.clientHeight - boardBottom
+      : -boardTop;
+    const verticalMax = boardScaledHeight >= viewport.clientHeight
+      ? -boardTop
+      : viewport.clientHeight - boardBottom;
+
+    return {
+      x: Math.min(horizontalMax, Math.max(horizontalMin, offset.x)),
+      y: Math.min(verticalMax, Math.max(verticalMin, offset.y)),
+    };
+  };
   const {
     players         = [],
     owners          = {},
@@ -199,6 +224,12 @@ const Board = ({ gameState, zoom: controlledZoom, onZoomChange }) => {
     const nextZoom = Math.max(1, currentZoom * factor);
     if (nextZoom === currentZoom || fitScale <= 0) return;
 
+    if (nextZoom === 1) {
+      moveCamera({ x: 0, y: 0 });
+      updateZoom(1);
+      return;
+    }
+
     const currentScale = fitScale * currentZoom;
     const nextScale = fitScale * nextZoom;
     const currentCenterX =
@@ -212,7 +243,7 @@ const Board = ({ gameState, zoom: controlledZoom, onZoomChange }) => {
       y: point.y - worldY * nextScale - viewport.clientHeight / 2,
     };
 
-    moveCamera(nextCameraOffset);
+    moveCamera(clampCameraOffset(nextCameraOffset, nextScale, viewport));
     updateZoom(nextZoom);
   };
   const handleWheel = (event) => {
@@ -234,14 +265,25 @@ const Board = ({ gameState, zoom: controlledZoom, onZoomChange }) => {
     const point = getViewportPoint(event.clientX, event.clientY);
     pointersRef.current.set(event.pointerId, point);
 
-    if (pointersRef.current.size < 2) return;
+    if (pointersRef.current.size === 1) {
+      if (zoomRef.current > 1) {
+        gestureRef.current = {
+          type: 'pan',
+          startPoint: point,
+          startOffset: cameraOffsetRef.current,
+          moved: false,
+        };
+        event.currentTarget.setPointerCapture(event.pointerId);
+      }
+      return;
+    }
+
     const points = getPinchPoints();
-    const { distance } = getPinchMetrics(points);
-    const currentZoom = zoomRef.current;
+    const { center, distance } = getPinchMetrics(points);
     gestureRef.current = {
       type: 'pinch',
-      startZoom: currentZoom,
-      startDistance: Math.max(1, distance),
+      lastCenter: center,
+      lastDistance: Math.max(1, distance),
     };
     for (const [pointerId] of pointersRef.current) {
       if (!event.currentTarget.hasPointerCapture(pointerId)) {
@@ -258,15 +300,47 @@ const Board = ({ gameState, zoom: controlledZoom, onZoomChange }) => {
     const gesture = gestureRef.current;
     if (gesture?.type === 'pinch' && pointersRef.current.size >= 2) {
       const points = getPinchPoints();
-      const { distance } = getPinchMetrics(points);
-      const nextZoom = Math.max(1, gesture.startZoom * distance / gesture.startDistance);
+      const { center, distance } = getPinchMetrics(points);
+      const nextDistance = Math.max(1, distance);
+      const viewport = viewportRef.current;
+      const centerDelta = {
+        x: center.x - gesture.lastCenter.x,
+        y: center.y - gesture.lastCenter.y,
+      };
+      if (centerDelta.x || centerDelta.y) {
+        moveCamera(clampCameraOffset({
+          x: cameraOffsetRef.current.x + centerDelta.x,
+          y: cameraOffsetRef.current.y + centerDelta.y,
+        }, fitScale * zoomRef.current, viewport));
+      }
+      zoomAtPoint(center, nextDistance / gesture.lastDistance);
+      gesture.lastCenter = center;
+      gesture.lastDistance = nextDistance;
       event.preventDefault();
-      updateZoom(nextZoom);
+      return;
+    }
+
+    if (gesture?.type === 'pan' && pointersRef.current.size === 1) {
+      const delta = {
+        x: point.x - gesture.startPoint.x,
+        y: point.y - gesture.startPoint.y,
+      };
+      if (!gesture.moved && Math.hypot(delta.x, delta.y) < 6) return;
+
+      gesture.moved = true;
+      suppressClickRef.current = true;
+      event.preventDefault();
+      moveCamera(clampCameraOffset({
+        x: gesture.startOffset.x + delta.x,
+        y: gesture.startOffset.y + delta.y,
+      }, fitScale * zoomRef.current, viewportRef.current));
     }
   };
   const handlePointerUp = (event) => {
     const gesture = gestureRef.current;
-    if (gesture?.type === 'pinch') suppressClickRef.current = true;
+    if (gesture?.type === 'pinch' || (gesture?.type === 'pan' && gesture.moved)) {
+      suppressClickRef.current = true;
+    }
     pointersRef.current.delete(event.pointerId);
     gestureRef.current = null;
   };

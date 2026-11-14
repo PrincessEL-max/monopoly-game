@@ -1017,7 +1017,7 @@
   position: absolute;
   z-index: 8;
   top: -4px;
-  right: 16px;
+  right: 0;
   display: grid;
   width: 78px;
   height: 100px;
@@ -1123,7 +1123,7 @@
 .game-stage .panel-head {
   position: absolute;
   top: 5px;
-  left: 5px;
+  left: 0;
   right: auto;
   display: flex;
   width: auto;
@@ -1297,7 +1297,7 @@
 .game-stage .panel-actions .btn-roll {
   position: absolute;
   top: 36px;
-  left: 308px;
+  left: 323px;
   width: 211px;
   height: 207px;
   padding: 0;
@@ -1424,7 +1424,7 @@
   top: auto;
   right: auto;
   bottom: 16px;
-  left: 16px;
+  left: 0;
   width: 322px;
   height: 168px;
   min-height: 0;
@@ -1466,7 +1466,7 @@
   position: absolute;
   z-index: 6;
   bottom: 18px;
-  left: 18px;
+  left: 0;
   display: grid;
   width: 56px;
   height: 56px;
