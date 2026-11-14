@@ -7,7 +7,7 @@
 //   • Efek suara via useSound (dipicu dari perubahan state)
 // ============================================================
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useGameState } from './hooks/useGameState';
 import { useAI } from './hooks/useAI';
 import { useMultiplayer } from './hooks/useMultiplayer';
@@ -22,6 +22,7 @@ import JailModal from './components/modals/JailModal';
 import AuctionModal from './components/modals/AuctionModal';
 import TradeModal from './components/modals/TradeModal';
 import Board from './components/board/Board';
+import CoinBurstEffect from './components/board/CoinBurstEffect';
 import './styles/ui.css';
 import './styles/modals.css';
 
@@ -39,7 +40,11 @@ function GameRoot({ onRestart }) {
   const [timerNow, setTimerNow] = useState(Date.now);
   const [boardZoom, setBoardZoom] = useState(1);
   const [stageMetrics, setStageMetrics] = useState({ scale: 1, height: 576 });
+  const [cardFlight, setCardFlight] = useState(null);
+  const [coinBurstId, setCoinBurstId] = useState(0);
   const stageViewportRef = useRef(null);
+  const cardFlightIdRef = useRef(0);
+  const coinStateRef = useRef({ phase: 'setup', balances: new Map(), latestLog: null });
   const game = useGameState();
   const multiplayer = useMultiplayer(game);
   const gameView = multiplayer.room
@@ -121,6 +126,27 @@ function GameRoot({ onRestart }) {
     if (game.phase === 'ended' && !multiplayer.room) clearSave();
   }, [game.players, game.currentPlayerIndex, game.waitingFor, game.phase, game.owners, multiplayer.room]);
 
+  useEffect(() => {
+    const previous = coinStateRef.current;
+    const balances = new Map(game.players.map((player) => [player.id, player.money]));
+    const gainedMoney = game.phase === 'playing' && previous.phase === 'playing' &&
+      game.players.some((player) =>
+        previous.balances.has(player.id) && player.money > previous.balances.get(player.id)
+      );
+    const latestLog = game.log[0];
+    const latestLogKey = latestLog ? `${latestLog.ts}:${latestLog.text}` : null;
+    const loggedCoinEvent = game.phase === 'playing' && previous.phase === 'playing' &&
+      latestLogKey && latestLogKey !== previous.latestLog &&
+      /membeli|membangun rumah|membangun hotel|memenangkan lelang|menarik kartu/i.test(latestLog.text);
+
+    if (gainedMoney || loggedCoinEvent) setCoinBurstId((id) => id + 1);
+    coinStateRef.current = {
+      phase: game.phase,
+      balances,
+      latestLog: latestLogKey,
+    };
+  }, [game.players, game.phase, game.log]);
+
   // ── SUARA: picu efek berdasar perubahan state ──────────────────
   const prevRef = useRef({ roll: null, waitingFor: null, phase: 'setup', logLen: 0 });
   useEffect(() => {
@@ -156,6 +182,13 @@ function GameRoot({ onRestart }) {
     if (multiplayer.room) multiplayer.leaveRoom().finally(() => onRestart(false));
     else onRestart();
   };
+  const drawCardFromBoard = useCallback((deck, rect) => {
+    setCardFlight({ id: ++cardFlightIdRef.current, deck, rect });
+    gameView.drawCard();
+  }, [gameView.drawCard]);
+  const finishCardFlight = useCallback((id) => {
+    setCardFlight((current) => current?.id === id ? null : current);
+  }, []);
 
   // ── SETUP ──────────────────────────────────────────────────────
   if (game.phase === 'setup') {
@@ -235,7 +268,13 @@ function GameRoot({ onRestart }) {
             </div>
           )}
           <div className="app-board-area">
-            <Board gameState={gameView} zoom={boardZoom} onZoomChange={setBoardZoom} />
+            <Board
+              gameState={gameView}
+              zoom={boardZoom}
+              onZoomChange={setBoardZoom}
+              onDrawCard={drawCardFromBoard}
+            />
+            {coinBurstId > 0 && <CoinBurstEffect key={coinBurstId} />}
           </div>
 
           <ControlPanel
@@ -246,7 +285,11 @@ function GameRoot({ onRestart }) {
           />
 
           <BuyModal game={gameView} />
-          <CardModal game={gameView} />
+          <CardModal
+            game={gameView}
+            cardFlight={cardFlight}
+            onCardFlightComplete={finishCardFlight}
+          />
           <JailModal game={gameView} />
           <AuctionModal game={gameView} difficulty={difficulty} />
           <TradeModal

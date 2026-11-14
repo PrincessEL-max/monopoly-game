@@ -1,10 +1,15 @@
 import React, { useCallback, useEffect, useRef } from 'react';
-import { PLAYER_CONFIG } from '../../constants/config';
+import { MULTIPLAYER_ENABLED, PLAYER_CONFIG } from '../../constants/config';
 import '../../styles/game-menu-frame.css';
 
 const CHANNEL = 'monopoli-game-menu';
 const OUTBOUND_CHANNEL = 'monopoli-game-app';
 const DIFFICULTIES = { Mudah: 'easy', Sedang: 'medium', Sulit: 'hard' };
+const MULTIPLAYER_MESSAGE_TYPES = new Set([
+  'online', 'quick', 'quickcancel', 'quickfound', 'create', 'join',
+  'roominvite', 'roombot', 'roomremove', 'disband', 'invite',
+  'friendsearch', 'addfriend',
+]);
 
 export default function GameMenuFrame({
   multiplayer, sound, onStartOffline, onContinue, onDeleteSave, saveSlots,
@@ -33,7 +38,14 @@ export default function GameMenuFrame({
       invites: stats.invites || [],
       totalOnline: stats.totalOnline || 0,
       activePlayers: stats.activePlayers || 0,
-      server: { name: current.error ? 'TIDAK TERHUBUNG' : 'INDONESIA', ping: stats.ping || 0 },
+      server: {
+        name: !MULTIPLAYER_ENABLED
+          ? 'NONAKTIF SEMENTARA'
+          : current.error
+            ? 'TIDAK TERHUBUNG'
+            : 'INDONESIA',
+        ping: stats.ping || 0,
+      },
     });
   }, [send]);
 
@@ -85,6 +97,14 @@ export default function GameMenuFrame({
     const { multiplayer: game, sound: currentSound } = current;
     const defaultName = game.profile?.name || 'Pemain 1';
     const defaultPiece = PLAYER_CONFIG.PIECE_ICONS[0];
+    if (
+      !MULTIPLAYER_ENABLED &&
+      (MULTIPLAYER_MESSAGE_TYPES.has(type) || (type === 'start' && detail?.mode !== 'offline'))
+    ) {
+      send('toast', 'Fitur online sedang dinonaktifkan sementara.');
+      return;
+    }
+
     try {
       switch (type) {
         case 'ready':
@@ -98,7 +118,11 @@ export default function GameMenuFrame({
               '',
               `${window.location.pathname}${window.location.hash}`,
             );
-            handlerRef.current?.('join', { roomId: roomInviteCodeRef.current });
+            if (MULTIPLAYER_ENABLED) {
+              handlerRef.current?.('join', { roomId: roomInviteCodeRef.current });
+            } else {
+              send('toast', 'Fitur online sedang dinonaktifkan sementara.');
+            }
           }
           break;
         case 'start':

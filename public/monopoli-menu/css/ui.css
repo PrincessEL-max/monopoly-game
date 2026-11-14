@@ -10,6 +10,7 @@
 .bt img{width:100%;display:block;pointer-events:none}
 .bt:hover{transform:scale(1.04);filter:brightness(1.08) drop-shadow(0 .8vh .6vh rgba(60,25,0,.35))}
 .bt:active{transform:scale(.95) translateY(.5vh)}
+.bt:disabled{opacity:.45;filter:grayscale(.8);cursor:not-allowed;animation:none;transform:none}
 .bt:focus-visible{outline:3px solid #fff;outline-offset:2px;border-radius:99px}
 .ov{position:fixed;inset:0;display:none;place-items:center;background:rgba(40,20,0,.55);z-index:5}
 .ov.on{display:grid}

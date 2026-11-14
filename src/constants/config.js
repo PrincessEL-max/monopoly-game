@@ -2,6 +2,8 @@
 // config.js — Konfigurasi board, warna, harga, aturan game
 // ============================================================
 
+export const MULTIPLAYER_ENABLED = false; // Re-enable when the online server is ready.
+
 // ─── UKURAN BOARD ────────────────────────────────────────────
 export const BOARD = {
   SIZE: 760,           // px — total lebar/tinggi board (kotak)
@@ -108,6 +110,6 @@ export const SPECIAL_POSITIONS = {
 // ─── ANIMASI ─────────────────────────────────────────────────
 export const ANIMATION = {
   DICE_ROLL_DURATION: 600,   // ms
-  PIECE_MOVE_DURATION: 200,  // ms per petak
+  PIECE_MOVE_DURATION: 400,  // ms per petak
   MODAL_FADE_DURATION: 250,  // ms
 };

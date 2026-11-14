@@ -128,7 +128,7 @@ const GROUP_OFFSETS = [
  *   gameState — full state dari useGameState():
  *     players, owners, houses, hotels, landResult, freeParkingPool
  */
-const Board = ({ gameState, zoom: controlledZoom, onZoomChange }) => {
+const Board = ({ gameState, zoom: controlledZoom, onZoomChange, onDrawCard }) => {
   const viewportRef = useRef(null);
   const [fitScale, setFitScale] = useState(1);
   const [localZoom, setLocalZoom] = useState(1);
@@ -461,7 +461,7 @@ const Board = ({ gameState, zoom: controlledZoom, onZoomChange }) => {
             className="board-center-area"
             style={{ gridRow: `2 / ${sideCount + 2}`, gridColumn: '2 / 11' }}
           >
-            <BoardCenter />
+            <BoardCenter gameState={gameState} onDrawCard={onDrawCard} />
           </div>
 
           {/* ── Bidak Pemain (absolut overlay) ────────────── */}

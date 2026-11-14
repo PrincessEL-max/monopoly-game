@@ -145,7 +145,21 @@ export const startPieceRenderer = () => {
       renderer.autoClear = false;
       renderer.domElement.className = 'piece-model-renderer';
       renderer.domElement.setAttribute('aria-hidden', 'true');
-      document.body.appendChild(renderer.domElement);
+
+      let renderRoot = null;
+      let resizeObserver;
+      const updateRenderRoot = () => {
+        const stage = document.querySelector('.game-stage');
+        const nextRoot = stage || document.body;
+        if (nextRoot === renderRoot) return;
+
+        renderRoot = nextRoot;
+        renderRoot.appendChild(renderer.domElement);
+        renderer.domElement.classList.toggle('piece-model-renderer--stage', !!stage);
+        resizeObserver.disconnect();
+        if (stage) resizeObserver.observe(stage);
+        resize();
+      };
 
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(28, 1, 0.1, 30);
@@ -161,8 +175,14 @@ export const startPieceRenderer = () => {
 
       const models = new Map();
 
-      const resize = () => renderer.setSize(window.innerWidth, window.innerHeight, false);
-      resize();
+      const resize = () => {
+        if (!renderRoot) return;
+        const width = renderRoot === document.body ? window.innerWidth : renderRoot.clientWidth;
+        const height = renderRoot === document.body ? window.innerHeight : renderRoot.clientHeight;
+        renderer.setSize(Math.max(1, width), Math.max(1, height), false);
+      };
+      resizeObserver = new ResizeObserver(resize);
+      updateRenderRoot();
       window.addEventListener('resize', resize);
 
       let previousFrame = 0;
@@ -170,21 +190,67 @@ export const startPieceRenderer = () => {
         requestAnimationFrame(draw);
         if (timestamp - previousFrame < 33) return;
         previousFrame = timestamp;
+        updateRenderRoot();
 
-        const width = window.innerWidth;
-        const height = window.innerHeight;
+        const rootWidth = renderRoot === document.body ? window.innerWidth : renderRoot.clientWidth;
+        const rootHeight = renderRoot === document.body ? window.innerHeight : renderRoot.clientHeight;
+        const rootBounds = renderRoot === document.body
+          ? {
+              left: 0,
+              top: 0,
+              right: rootWidth,
+              bottom: rootHeight,
+              width: rootWidth,
+              height: rootHeight,
+            }
+          : renderRoot.getBoundingClientRect();
+        const scaleX = rootBounds.width / Math.max(1, rootWidth);
+        const scaleY = rootBounds.height / Math.max(1, rootHeight);
         const elements = document.querySelectorAll('.piece-model[data-piece]');
         renderer.setScissorTest(false);
         renderer.clear(true, true, true);
         renderer.setScissorTest(true);
 
         elements.forEach((element, index) => {
-          const rect = element.getBoundingClientRect();
-          const left = Math.max(0, rect.left);
-          const right = Math.min(width, rect.right);
-          const top = Math.max(0, rect.top);
-          const bottom = Math.min(height, rect.bottom);
-          if (right <= left || bottom <= top || rect.width <= 0 || rect.height <= 0) return;
+          if (!renderRoot.contains(element)) return;
+
+          const elementRect = element.getBoundingClientRect();
+          const visibleRect = {
+            left: Math.max(rootBounds.left, elementRect.left),
+            top: Math.max(rootBounds.top, elementRect.top),
+            right: Math.min(rootBounds.right, elementRect.right),
+            bottom: Math.min(rootBounds.bottom, elementRect.bottom),
+          };
+          for (
+            let ancestor = element.parentElement;
+            ancestor && ancestor !== renderRoot;
+            ancestor = ancestor.parentElement
+          ) {
+            const style = window.getComputedStyle(ancestor);
+            if (style.overflowX === 'visible' && style.overflowY === 'visible') continue;
+            const clip = ancestor.getBoundingClientRect();
+            if (style.overflowX !== 'visible') {
+              visibleRect.left = Math.max(visibleRect.left, clip.left);
+              visibleRect.right = Math.min(visibleRect.right, clip.right);
+            }
+            if (style.overflowY !== 'visible') {
+              visibleRect.top = Math.max(visibleRect.top, clip.top);
+              visibleRect.bottom = Math.min(visibleRect.bottom, clip.bottom);
+            }
+          }
+          if (
+            visibleRect.right <= visibleRect.left ||
+            visibleRect.bottom <= visibleRect.top ||
+            elementRect.width <= 0 ||
+            elementRect.height <= 0
+          ) return;
+
+          const left = (visibleRect.left - rootBounds.left) / scaleX;
+          const right = (visibleRect.right - rootBounds.left) / scaleX;
+          const top = (visibleRect.top - rootBounds.top) / scaleY;
+          const bottom = (visibleRect.bottom - rootBounds.top) / scaleY;
+          const width = right - left;
+          const height = bottom - top;
 
           const piece = element.dataset.piece;
           const color = element.dataset.color || '#f0c84b';
@@ -202,8 +268,8 @@ export const startPieceRenderer = () => {
           model.rotation.y = timestamp * 0.00045 + index * 0.38;
           model.rotation.x = -0.08;
 
-          renderer.setViewport(rect.left, height - rect.bottom, rect.width, rect.height);
-          renderer.setScissor(left, height - bottom, right - left, bottom - top);
+          renderer.setViewport(left, rootHeight - bottom, width, height);
+          renderer.setScissor(left, rootHeight - bottom, width, height);
           renderer.clear(true, true, true);
           renderer.render(scene, camera);
         });

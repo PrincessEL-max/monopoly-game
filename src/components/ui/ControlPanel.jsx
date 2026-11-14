@@ -39,7 +39,7 @@ const propColor = (sq) =>
 // Petunjuk singkat ketika sebuah modal sedang menangani aksi
 const MODAL_HINT = {
   BUY_DECISION: 'Lihat tawaran properti di tengah layar.',
-  DRAW_CARD:    'Ambil kartu di tengah layar.',
+  DRAW_CARD:    'Klik tumpukan kartu yang menyala di papan.',
   APPLY_CARD:   'Terapkan kartu di tengah layar.',
   TRADE_RESPONSE: 'Menunggu jawaban tawaran trade…',
   AUCTION:      'Lelang sedang berlangsung di tengah layar.',
@@ -75,6 +75,10 @@ export default function ControlPanel({ game, difficulty, onQuit, sound }) {
   }, [raising]);
 
   const actions = renderActions();
+  const showActionNotice = isAI || Boolean(
+    (waitingFor && MODAL_HINT[waitingFor]) ||
+    (currentPlayer?.inJail && canRoll && !waitingFor)
+  );
 
   function renderActions() {
     if (isAI) {
@@ -176,6 +180,7 @@ export default function ControlPanel({ game, difficulty, onQuit, sound }) {
             aria-label={endingTurn ? 'Akhiri giliran' : 'Kocok dadu'}
           >
             <img
+              key={endingTurn ? 'end-turn' : 'roll'}
               className="game-ui-icon game-ui-icon--roll"
               src={endingTurn ? MILLIONAIRE_UI_ASSETS.endTurn : MILLIONAIRE_UI_ASSETS.roll}
               alt=""
@@ -195,6 +200,7 @@ export default function ControlPanel({ game, difficulty, onQuit, sound }) {
   }
 
   return (
+    <>
     <aside className={`panel ${players.length > 3 ? 'panel--many-players' : ''}`}>
       <div className="panel-head">
         <div className="panel-turn">
@@ -250,7 +256,7 @@ export default function ControlPanel({ game, difficulty, onQuit, sound }) {
         onRollingChange={setDiceRolling}
       />
 
-      <div className="panel-actions">{actions}</div>
+      <div className="panel-actions">{showActionNotice ? null : actions}</div>
 
       {cardsOpen && (
         <PowerUpPanel
@@ -335,6 +341,8 @@ export default function ControlPanel({ game, difficulty, onQuit, sound }) {
         </button>
       )}
     </aside>
+    {showActionNotice && <div className="panel-notice">{actions}</div>}
+    </>
   );
 }
 

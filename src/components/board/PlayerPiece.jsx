@@ -19,7 +19,13 @@ import PieceModel from './PieceModel';
 
 const PIECE_SIZE = 46;          // diameter bidak (px)
 const STEP_MS = ANIMATION.PIECE_MOVE_DURATION; // ms per petak
-const PlayerPiece = ({ player, resolveCenter, routeIds, offset = { dx: 0, dy: 0 }, color }) => {
+const PlayerPiece = ({
+  player,
+  resolveCenter,
+  routeIds,
+  offset = { dx: 0, dy: 0 },
+  color,
+}) => {
   const fmt = (n) => n?.toLocaleString('id-ID') ?? '0';
 
   // Posisi yang sedang DITAMPILKAN (bisa tertinggal dari player.position saat animasi)

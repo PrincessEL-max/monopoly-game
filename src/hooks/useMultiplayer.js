@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ACTIONS, INITIAL_GAME_STATE } from '../logic/gameReducer.js';
+import { MULTIPLAYER_ENABLED } from '../constants/config.js';
 import { supabase } from '../lib/supabase.js';
 
 const SESSION_KEY = 'monopoly-online-session';
@@ -67,7 +68,11 @@ export const useMultiplayer = (game) => {
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(
-    supabase ? '' : 'Atur VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY untuk mengaktifkan multiplayer.',
+    !MULTIPLAYER_ENABLED
+      ? 'Fitur multiplayer sedang dinonaktifkan sementara.'
+      : supabase
+        ? ''
+        : 'Atur VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY untuk mengaktifkan multiplayer.',
   );
   const gameRef = useRef(game);
   const profileSessionRef = useRef(readStoredValue(PROFILE_KEY));
