@@ -12,10 +12,19 @@ import { useGameState } from './hooks/useGameState';
 import { useAI } from './hooks/useAI';
 import { useMultiplayer } from './hooks/useMultiplayer';
 import { useSound } from './hooks/useSound';
-import { saveGame, loadGame as loadSaved, peekSave, clearSave } from './utils/saveGame';
+import {
+  clearSave,
+  clearSaveSlot,
+  loadGame as loadSaved,
+  loadGameFromSlot,
+  peekSave,
+  peekSaveSlots,
+  saveGame,
+} from './utils/saveGame';
 import ControlPanel from './components/ui/ControlPanel';
 import GameMenuFrame from './components/screens/GameMenuFrame';
 import EndScreen from './components/screens/EndScreen';
+import GameOptionsOverlay from './components/ui/GameOptionsOverlay';
 import BuyModal from './components/modals/BuyModal';
 import CardModal from './components/modals/CardModal';
 import JailModal from './components/modals/JailModal';
@@ -37,6 +46,7 @@ export default function App() {
 function GameRoot({ onRestart }) {
   const [difficulty] = useState('medium');
   const [tradeOpen, setTradeOpen] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const [timerNow, setTimerNow] = useState(Date.now);
   const [boardZoom, setBoardZoom] = useState(1);
   const [stageMetrics, setStageMetrics] = useState({ scale: 1, height: 576 });
@@ -182,6 +192,10 @@ function GameRoot({ onRestart }) {
     if (multiplayer.room) multiplayer.leaveRoom().finally(() => onRestart(false));
     else onRestart();
   };
+  const exitToMenu = () => {
+    if (multiplayer.room) multiplayer.leaveRoom().finally(() => onRestart(false));
+    else onRestart(false);
+  };
   const drawCardFromBoard = useCallback((deck, rect) => {
     setCardFlight({ id: ++cardFlightIdRef.current, deck, rect });
     gameView.drawCard();
@@ -193,25 +207,30 @@ function GameRoot({ onRestart }) {
   // ── SETUP ──────────────────────────────────────────────────────
   if (game.phase === 'setup') {
     const saveSummary = peekSave();
+    const menuSaveSlots = peekSaveSlots().map((slot) => {
+      if (slot.savedAt) return slot;
+      return slot.slot === 1 && saveSummary ? { slot: 1, ...saveSummary } : null;
+    }).filter(Boolean);
     return (
       <GameMenuFrame
         multiplayer={multiplayer}
         sound={sound}
-        saveSlots={saveSummary ? [{ slot: 1, ...saveSummary }] : []}
+        saveSlots={menuSaveSlots}
         onStartOffline={(setups, settings) => {
           clearSave();
           game.startGame(setups, settings);
         }}
-        onContinue={() => {
-          const snap = loadSaved();
+        onLoadSlot={(slot) => {
+          const snap = loadGameFromSlot(slot) || (slot === 1 ? loadSaved() : null);
           if (!snap) return false;
           game.loadGame(snap);
           return true;
         }}
         onDeleteSave={(slot) => {
-          if (slot !== 1) return false;
-          clearSave();
-          return true;
+          const hadManualSave = peekSaveSlots().some((save) => save.slot === slot && save.savedAt);
+          const clearedManualSave = clearSaveSlot(slot);
+          if (slot === 1) clearSave();
+          return hadManualSave || (slot === 1 && Boolean(saveSummary && clearedManualSave));
         }}
       />
     );
@@ -280,8 +299,9 @@ function GameRoot({ onRestart }) {
           <ControlPanel
             game={gameView}
             difficulty={difficulty}
-            onQuit={restartGame}
             sound={sound}
+            onOpenOptions={() => setOptionsOpen(true)}
+            optionsOpen={optionsOpen}
           />
 
           <BuyModal game={gameView} />
@@ -298,6 +318,14 @@ function GameRoot({ onRestart }) {
             open={tradeOpen}
             onClose={() => setTradeOpen(false)}
           />
+          {optionsOpen && (
+            <GameOptionsOverlay
+              game={gameView}
+              sound={sound}
+              onClose={() => setOptionsOpen(false)}
+              onQuit={exitToMenu}
+            />
+          )}
         </div>
       </div>
       <div className="game-stage-rotate">

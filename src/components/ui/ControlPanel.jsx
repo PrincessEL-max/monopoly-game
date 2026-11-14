@@ -45,7 +45,7 @@ const MODAL_HINT = {
   AUCTION:      'Lelang sedang berlangsung di tengah layar.',
 };
 
-export default function ControlPanel({ game, difficulty, onQuit, sound }) {
+export default function ControlPanel({ game, difficulty, sound, onOpenOptions, optionsOpen }) {
   const {
     players, currentPlayer, currentPlayerIndex, owners, houses, hotels,
     lastRoll, log, landResult, waitingFor, canRoll, pendingDebt,
@@ -58,7 +58,6 @@ export default function ControlPanel({ game, difficulty, onQuit, sound }) {
   const [cardsOpen, setCardsOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(true);
   const [diceRolling, setDiceRolling] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const powerUpCount = (currentPlayer?.powerUps || [])
     .filter((card) => POWER_UP_UI[card.action]).length;
   const closeCards = useCallback(() => setCardsOpen(false), []);
@@ -215,10 +214,10 @@ export default function ControlPanel({ game, difficulty, onQuit, sound }) {
           <div className="panel-settings">
             <button
               className="btn btn-ghost btn-sm panel-settings-button"
-              onClick={() => setSettingsOpen((open) => !open)}
+              onClick={onOpenOptions}
               title="Pengaturan"
               aria-label="Pengaturan"
-              aria-expanded={settingsOpen}
+              aria-expanded={optionsOpen}
             >
               <img
                 className="panel-settings-icon"
@@ -228,24 +227,6 @@ export default function ControlPanel({ game, difficulty, onQuit, sound }) {
               />
               <span className="sr-only">Pengaturan</span>
             </button>
-            {settingsOpen && (
-              <div className="panel-settings-menu" role="menu" aria-label="Pengaturan permainan">
-                <button
-                  className="panel-settings-option"
-                  role="menuitem"
-                  onClick={sound.toggle}
-                >
-                  Suara: {sound.enabled ? 'Aktif' : 'Mati'}
-                </button>
-                <button
-                  className="panel-settings-option panel-settings-exit"
-                  role="menuitem"
-                  onClick={onQuit}
-                >
-                  Keluar dari permainan
-                </button>
-              </div>
-            )}
           </div>
         )}
       </div>

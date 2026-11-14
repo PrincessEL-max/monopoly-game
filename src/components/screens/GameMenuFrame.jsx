@@ -12,15 +12,15 @@ const MULTIPLAYER_MESSAGE_TYPES = new Set([
 ]);
 
 export default function GameMenuFrame({
-  multiplayer, sound, onStartOffline, onContinue, onDeleteSave, saveSlots,
+  multiplayer, sound, onStartOffline, onLoadSlot, onDeleteSave, saveSlots,
 }) {
   const frameRef = useRef(null);
   const handlerRef = useRef(null);
   const roomInviteCodeRef = useRef(new URLSearchParams(window.location.search).get('room'));
   const roomInviteHandledRef = useRef(false);
   const matchPollRef = useRef({ active: false, timer: null });
-  const latestRef = useRef({ multiplayer, sound, onStartOffline, onContinue, onDeleteSave, saveSlots });
-  latestRef.current = { multiplayer, sound, onStartOffline, onContinue, onDeleteSave, saveSlots };
+  const latestRef = useRef({ multiplayer, sound, onStartOffline, onLoadSlot, onDeleteSave, saveSlots });
+  latestRef.current = { multiplayer, sound, onStartOffline, onLoadSlot, onDeleteSave, saveSlots };
 
   const send = useCallback((type, detail) => {
     frameRef.current?.contentWindow?.postMessage(
@@ -146,7 +146,7 @@ export default function GameMenuFrame({
           }
           break;
         case 'loadgame':
-          if (detail?.slot !== 1 || !current.onContinue()) {
+          if (!Number.isInteger(detail?.slot) || !current.onLoadSlot?.(detail.slot)) {
             send('toast', 'Data simpanan tidak tersedia.');
           }
           break;

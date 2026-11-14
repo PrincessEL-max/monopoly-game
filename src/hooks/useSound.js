@@ -12,12 +12,22 @@
 import { useRef, useState, useCallback } from 'react';
 
 const PREF_KEY = 'monopoli:sound:v1';
+const VOLUME_KEY = 'monopoli:sound-volume:v1';
 
 const readPref = () => {
   try {
     const v = window.localStorage.getItem(PREF_KEY);
     return v == null ? true : v === '1';
   } catch { return true; }
+};
+
+const readVolume = () => {
+  try {
+    const stored = window.localStorage.getItem(VOLUME_KEY);
+    if (stored == null) return 0.7;
+    const volume = Number(stored);
+    return Number.isFinite(volume) ? Math.min(1, Math.max(0, volume)) : 0.7;
+  } catch { return 0.7; }
 };
 
 // Definisi nada: urutan [frekuensi Hz, durasi detik, tipe]
@@ -35,6 +45,7 @@ const TONES = {
 export const useSound = () => {
   const ctxRef = useRef(null);
   const [enabled, setEnabled] = useState(readPref);
+  const [volume, setVolume] = useState(readVolume);
 
   const ensureCtx = useCallback(() => {
     if (!ctxRef.current) {
@@ -47,7 +58,7 @@ export const useSound = () => {
   }, []);
 
   const play = useCallback((name) => {
-    if (!enabled) return;
+    if (!enabled || volume <= 0) return;
     const ctx = ensureCtx();
     if (!ctx) return;
     const seq = TONES[name] || TONES.click;
@@ -60,14 +71,14 @@ export const useSound = () => {
       osc.frequency.setValueAtTime(freq, t);
       // Envelope sederhana agar tidak "klik"
       gain.gain.setValueAtTime(0.0001, t);
-      gain.gain.exponentialRampToValueAtTime(0.18, t + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.18 * volume, t + 0.01);
       gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
       osc.connect(gain).connect(ctx.destination);
       osc.start(t);
       osc.stop(t + dur + 0.02);
       t += dur;
     }
-  }, [enabled, ensureCtx]);
+  }, [enabled, ensureCtx, volume]);
 
   const setSoundEnabled = useCallback((value) => {
     setEnabled((prev) => {
@@ -78,5 +89,18 @@ export const useSound = () => {
   }, []);
   const toggle = useCallback(() => setSoundEnabled((prev) => !prev), [setSoundEnabled]);
 
-  return { play, enabled, toggle, setEnabled: setSoundEnabled };
+  const setSoundVolume = useCallback((value) => {
+    const next = Math.min(1, Math.max(0, Number(value) || 0));
+    try { window.localStorage.setItem(VOLUME_KEY, String(next)); } catch { /* ignore */ }
+    setVolume(next);
+  }, []);
+
+  return {
+    play,
+    enabled,
+    toggle,
+    setEnabled: setSoundEnabled,
+    volume,
+    setVolume: setSoundVolume,
+  };
 };
