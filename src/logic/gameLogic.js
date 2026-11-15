@@ -11,8 +11,9 @@ import { RULES, SPECIAL_POSITIONS } from '../constants/config.js';
 import { shuffleDeck, CHANCE_CARDS, COMMUNITY_CHEST_CARDS } from '../constants/cards.js';
 import { calculateRent } from './rentLogic.js';
 import { calcNewPosition, findNearest, positionComesAfter } from './routeLogic.js';
+import { getNextTurn } from './turnLogic.js';
 
-export { calcNewPosition, findNearest, positionComesAfter };
+export { calcNewPosition, findNearest, positionComesAfter, getNextTurn };
 
 // ─────────────────────────────────────────────────────────────
 // DICE
@@ -485,24 +486,7 @@ export const transferMoney = (fromPlayer, toPlayer, amount) => {
   return { fromPatch, toPatch, bankrupt: fromPlayer.money - amount < RULES.BANKRUPTCY_THRESHOLD };
 };
 
-// ─────────────────────────────────────────────────────────────
-// NEXT TURN
-// ─────────────────────────────────────────────────────────────
-
-/**
- * Tentukan pemain berikutnya
- * Jika double dan tidak masuk penjara → giliran sama
- */
-export const getNextTurn = (currentIndex, players, rolledDouble, wentToJail) => {
-  if (rolledDouble && !wentToJail) return currentIndex; // giliran lagi
-  const activePlayers = players.filter((p) => !p.bankrupt);
-  const currentActiveIndex = activePlayers.findIndex(
-    (p) => p.id === players[currentIndex].id
-  );
-  return players.findIndex(
-    (p) => p.id === activePlayers[(currentActiveIndex + 1) % activePlayers.length].id
-  );
-};
+// getNextTurn → lihat turnLogic.js (di-re-export di bagian atas file ini)
 
 // ─────────────────────────────────────────────────────────────
 // INITIAL STATE

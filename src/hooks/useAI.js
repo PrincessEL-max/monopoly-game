@@ -81,11 +81,12 @@ export const useAI = (gameState, actions, difficulty = 'medium', enabled = true,
     };
     const turnDifficulty = currentPlayer.difficulty || difficulty;
 
-    // Giliran sudah digeser reducer sendiri (go_to_jail, triple double, dll)
-    // Tidak perlu aksi tambahan — clear timer pending dan return.
+    // Giliran baru saja digeser reducer sendiri (go_to_jail, triple double,
+    // gagal keluar penjara, bangkrut). Batalkan timer yang masih menggantung
+    // dari pemain sebelumnya, tapi JANGAN berhenti: flag `turnEnded` ikut
+    // terbawa ke pemain berikutnya, dan kalau dia AI, dialah yang harus main.
     if (turnEnded) {
       clearTimeout(timerRef.current);
-      return;
     }
 
     // ── RESPONS TRADE MASUK ──────────────────────────────────
@@ -175,12 +176,13 @@ export const useAI = (gameState, actions, difficulty = 'medium', enabled = true,
               useJailFreeCard('community_chest');
               return;
             }
-            if (currentPlayer.jailTurns < 2) {
-              // Masih bisa tunggu double, langsung roll
-            } else {
+            if (currentPlayer.jailTurns >= 2 && currentPlayer.money >= RULES.JAIL_FINE) {
               payJailFine();
               return;
             }
+            // Masih bisa tunggu double — atau tidak mampu bayar denda:
+            // langsung roll (payJailFine tanpa uang tidak mengubah state
+            // sehingga AI akan macet).
           }
         }
 

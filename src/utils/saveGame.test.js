@@ -73,3 +73,29 @@ test('manual slots reject invalid slot numbers and non-playing states', () => {
   assert.equal(clearSaveSlot(0), false);
   assert.equal(peekSaveSlots()[0].savedAt, undefined);
 });
+
+test('snapshot menyimpan dan mengembalikan state giliran yang sedang berjalan', () => {
+  const midTurn = {
+    ...gameState,
+    waitingFor: 'RAISE_FUNDS',
+    canRoll: false,
+    turnEnded: false,
+    landResult: { type: 'rent', rentAmount: 5000, ownerId: 2 },
+    pendingDebt: { amount: 5000, creditorId: 2, kind: 'rent', alreadyApplied: false },
+  };
+  assert.equal(saveGameToSlot(midTurn, 1), true);
+  const loaded = loadGameFromSlot(1);
+  assert.equal(loaded.turnState.waitingFor, 'RAISE_FUNDS');
+  assert.equal(loaded.turnState.canRoll, false);
+  assert.deepEqual(loaded.turnState.pendingDebt, midTurn.pendingDebt);
+  assert.deepEqual(loaded.turnState.landResult, midTurn.landResult);
+  assert.equal(loaded.turnState.auction, null);
+});
+
+test('state di awal giliran disimpan dengan nilai bawaan yang aman', () => {
+  assert.equal(saveGameToSlot(gameState, 3), true);
+  const { turnState } = loadGameFromSlot(3);
+  assert.equal(turnState.waitingFor, null);
+  assert.equal(turnState.canRoll, true);
+  assert.equal(turnState.pendingDebt, null);
+});

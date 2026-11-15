@@ -21,6 +21,7 @@ import {
   peekSaveSlots,
   saveGame,
 } from './utils/saveGame';
+import { soundForLogText } from './utils/logSound';
 import ControlPanel from './components/ui/ControlPanel';
 import GameMenuFrame from './components/screens/GameMenuFrame';
 import EndScreen from './components/screens/EndScreen';
@@ -134,7 +135,12 @@ function GameRoot({ onRestart }) {
   useEffect(() => {
     if (game.phase === 'playing' && !multiplayer.room) saveGame(game);
     if (game.phase === 'ended' && !multiplayer.room) clearSave();
-  }, [game.players, game.currentPlayerIndex, game.waitingFor, game.phase, game.owners, multiplayer.room]);
+  }, [
+    game.players, game.currentPlayerIndex, game.waitingFor, game.phase, game.owners,
+    game.houses, game.hotels, game.freeParkingPool, game.canRoll, game.landResult,
+    game.activeCard, game.auction, game.pendingDebt, game.pendingTrade,
+    multiplayer.room,
+  ]);
 
   useEffect(() => {
     const previous = coinStateRef.current;
@@ -158,7 +164,7 @@ function GameRoot({ onRestart }) {
   }, [game.players, game.phase, game.log]);
 
   // ── SUARA: picu efek berdasar perubahan state ──────────────────
-  const prevRef = useRef({ roll: null, waitingFor: null, phase: 'setup', logLen: 0 });
+  const prevRef = useRef({ roll: null, waitingFor: null, phase: 'setup', logKey: null });
   useEffect(() => {
     const prev = prevRef.current;
 
@@ -169,13 +175,13 @@ function GameRoot({ onRestart }) {
       else if (game.waitingFor === 'DRAW_CARD') sound.play('click');
     }
 
-    // Deteksi event tertentu dari baris log terbaru
-    if (game.log.length > prev.logLen) {
-      const latest = game.log[game.log.length - 1] || '';
-      if (/membeli|memenangkan lelang/i.test(latest)) sound.play('buy');
-      else if (/menerima|bonus|START/i.test(latest)) sound.play('money');
-      else if (/penjara/i.test(latest)) sound.play('jail');
-      else if (/bangkrut/i.test(latest)) sound.play('lose');
+    // Deteksi event tertentu dari baris log terbaru. Entri baru ada di log[0]
+    // (log dibatasi 50 baris, jadi panjang log tidak bisa dipakai sebagai penanda).
+    const latestLog = game.log[0];
+    const logKey = latestLog ? `${latestLog.ts}:${latestLog.text}` : null;
+    if (logKey && logKey !== prev.logKey && prev.phase === 'playing' && game.phase === 'playing') {
+      const logSound = soundForLogText(latestLog.text);
+      if (logSound) sound.play(logSound);
     }
 
     if (game.phase === 'ended' && prev.phase !== 'ended') sound.play('win');
@@ -184,7 +190,7 @@ function GameRoot({ onRestart }) {
       roll: game.lastRoll,
       waitingFor: game.waitingFor,
       phase: game.phase,
-      logLen: game.log.length,
+      logKey,
     };
   }, [game.lastRoll, game.waitingFor, game.phase, game.log, sound]);
 

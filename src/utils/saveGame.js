@@ -53,6 +53,21 @@ const createPayload = (state) => ({
     lastRoll: state.lastRoll,
     log: state.log,
     winner: null,
+    // State giliran yang sedang berjalan (sewa/pajak/utang/lelang/kartu yang
+    // belum selesai). Tanpa ini, memuat save di tengah giliran menghapus
+    // kewajiban pemain dan memberi lemparan dadu baru.
+    turnState: {
+      waitingFor: state.waitingFor ?? null,
+      canRoll: state.canRoll ?? true,
+      turnEnded: state.turnEnded ?? false,
+      landResult: state.landResult ?? null,
+      activeCard: state.activeCard ?? null,
+      auction: state.auction ?? null,
+      pendingDebt: state.pendingDebt ?? null,
+      pendingPayments: state.pendingPayments ?? null,
+      pendingTrade: state.pendingTrade ?? null,
+      pendingReroll: state.pendingReroll ?? null,
+    },
   },
 });
 

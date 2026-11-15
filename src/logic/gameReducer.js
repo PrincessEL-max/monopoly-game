@@ -287,6 +287,29 @@ const reduceGame = (state, action) => {
           };
         }
 
+        // Giliran ke-3: denda wajib dibayar. Kalau uang kurang, pemain harus
+        // jual/gadai dulu (atau menyerah) — jangan biarkan saldo jadi minus.
+        if (paid && player.money < RULES.JAIL_FINE) {
+          return {
+            ...state,
+            lastRoll: roll,
+            waitingFor: 'RAISE_FUNDS',
+            canRoll: false,
+            turnEnded: false,
+            pendingDebt: {
+              amount: RULES.JAIL_FINE,
+              creditorId: null,
+              kind: 'jail_fine',
+              alreadyApplied: false,
+              roll, // lemparan ini dipakai untuk jalan setelah denda lunas
+            },
+            log: addLog(
+              state.log,
+              `${player.name} wajib membayar denda penjara Rp ${fmt(RULES.JAIL_FINE)} tapi uang kurang. Jual/gadai aset dulu.`
+            ),
+          };
+        }
+
         // Bebas — pakai freedPlayer sebagai base untuk gerak normal
         player = { ...player, ...patch, consecutiveDoubles: newDoubles };
       }
@@ -525,7 +548,13 @@ const reduceGame = (state, action) => {
 
       const deck = isChance ? state.chanceDeck : state.communityChestDeck;
       const source = isChance ? CHANCE_CARDS : COMMUNITY_CHEST_CARDS;
-      const { card, newDeck } = drawFromDeck(deck, source);
+      // Kartu Bebas Penjara yang sedang dipegang pemain jangan ikut diacak ulang
+      const jailFreeKey = isChance ? 'chance' : 'community_chest';
+      const jailFreeHeld = players.some((p) => (p.jailFreeCards?.[jailFreeKey] ?? 0) > 0);
+      const heldIds = jailFreeHeld
+        ? source.filter((c) => c.type === 'jail_free').map((c) => c.id)
+        : [];
+      const { card, newDeck } = drawFromDeck(deck, source, heldIds);
 
       return {
         ...state,
@@ -907,6 +936,26 @@ const reduceGame = (state, action) => {
       // Sewa / pajak → harus punya cukup uang penuh
       if (player.money < pendingDebt.amount) return state;
 
+      // Denda penjara paksa → bayar ke bank (bukan Parkir Gratis), bebas,
+      // lalu lanjutkan lemparan dadu yang tertunda.
+      if (pendingDebt.kind === 'jail_fine') {
+        const freedPlayers = players.map((p, i) =>
+          i === currentPlayerIndex
+            ? { ...p, money: p.money - pendingDebt.amount, inJail: false, jailTurns: 0 }
+            : p
+        );
+        return reduceGame(
+          {
+            ...state,
+            players: freedPlayers,
+            pendingDebt: null,
+            waitingFor: null,
+            log: addLog(state.log, `${player.name} melunasi denda penjara Rp ${fmt(pendingDebt.amount)} dan bebas.`),
+          },
+          { type: ACTIONS.ROLL_DICE, rollOverride: pendingDebt.roll }
+        );
+      }
+
       const { amount, creditorId } = pendingDebt;
       let newPlayers = players.map((p, i) =>
         i === currentPlayerIndex ? { ...p, money: p.money - amount } : p
@@ -1070,26 +1119,27 @@ const reduceGame = (state, action) => {
     // ── MUAT GAME (dari localStorage) ─────────────────────────
     case ACTIONS.LOAD_GAME: {
       // Ganti seluruh state dengan snapshot tersimpan (sudah tervalidasi
-      // di pemanggil). Bersihkan flag transien agar UI tidak nyangkut.
+      // di pemanggil). Save lama tidak punya `turnState` → mulai giliran bersih.
+      const { turnState = {}, ...snapshot } = action.snapshot;
       return {
-        ...action.snapshot,
-        settings: action.snapshot.settings || {
+        ...snapshot,
+        settings: snapshot.settings || {
           map: 'nusantara',
           startMoney: RULES.STARTING_MONEY,
           speed: 'normal',
           turnSeconds: null,
         },
-        turnStartedAt: action.snapshot.turnStartedAt ?? null,
-        landResult: null,
-        activeCard: null,
-        auction: null,
-        pendingDebt: null,
-        pendingPayments: null,
-        pendingTrade: null,
-        pendingReroll: null,
-        waitingFor: null,
-        canRoll: true,
-        turnEnded: false,
+        turnStartedAt: snapshot.turnStartedAt ?? null,
+        landResult: turnState.landResult ?? null,
+        activeCard: turnState.activeCard ?? null,
+        auction: turnState.auction ?? null,
+        pendingDebt: turnState.pendingDebt ?? null,
+        pendingPayments: turnState.pendingPayments ?? null,
+        pendingTrade: turnState.pendingTrade ?? null,
+        pendingReroll: turnState.pendingReroll ?? null,
+        waitingFor: turnState.waitingFor ?? null,
+        canRoll: typeof turnState.canRoll === 'boolean' ? turnState.canRoll : true,
+        turnEnded: turnState.turnEnded === true,
       };
     }
 

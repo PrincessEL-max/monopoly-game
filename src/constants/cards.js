@@ -1,5 +1,6 @@
 // Card effects are normalized from the supplied ZIP data for the game reducer.
 import cardData from './millionaire-cards.json';
+import { shuffle } from '../utils/shuffle.js';
 
 const ACTION_TYPES = {
   receive: 'collect',
@@ -39,5 +40,4 @@ const normalizeCard = (card) => ({
 export const CHANCE_CARDS = cardData.chance.map(normalizeCard);
 export const COMMUNITY_CHEST_CARDS = cardData.community_chest.map(normalizeCard);
 
-export const shuffleDeck = (deck) =>
-  [...deck].sort(() => Math.random() - 0.5);
+export const shuffleDeck = (deck) => shuffle(deck);

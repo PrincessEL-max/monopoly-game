@@ -9,6 +9,7 @@ import {
 } from './gameLogic.js';
 import { calcRepairCost } from './rentLogic.js';
 import { RULES } from '../constants/config.js';
+import { shuffle } from '../utils/shuffle.js';
 import { getSquaresForMap } from '../constants/squares.js';
 
 // ─────────────────────────────────────────────────────────────
@@ -316,11 +317,16 @@ const fmt = (n) => n?.toLocaleString('id-ID') ?? '0';
 
 /**
  * Ambil kartu teratas dari deck, return { card, newDeck }
- * Jika deck kosong, shuffle ulang dari source
+ * Jika deck kosong, shuffle ulang dari source (kecuali kartu di `excludeIds`)
  */
-export const drawFromDeck = (deck, sourceCards) => {
+export const drawFromDeck = (deck, sourceCards, excludeIds = []) => {
   if (!deck || deck.length === 0) {
-    const reshuffled = [...sourceCards].sort(() => Math.random() - 0.5);
+    // Kartu yang sedang dipegang pemain (mis. Bebas Penjara) tidak ikut diacak
+    // ulang, agar tidak ada duplikat kartu yang sama di tangan dan di deck.
+    const pool = excludeIds.length > 0
+      ? sourceCards.filter((card) => !excludeIds.includes(card.id))
+      : sourceCards;
+    const reshuffled = shuffle(pool);
     return { card: reshuffled[0], newDeck: reshuffled.slice(1) };
   }
   const [card, ...newDeck] = deck;
