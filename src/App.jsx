@@ -26,6 +26,7 @@ import ControlPanel from './components/ui/ControlPanel';
 import GameMenuFrame from './components/screens/GameMenuFrame';
 import EndScreen from './components/screens/EndScreen';
 import GameOptionsOverlay from './components/ui/GameOptionsOverlay';
+import HowToPlayOverlay from './components/ui/HowToPlayOverlay';
 import BuyModal from './components/modals/BuyModal';
 import CardModal from './components/modals/CardModal';
 import JailModal from './components/modals/JailModal';
@@ -48,8 +49,14 @@ function GameRoot({ onRestart }) {
   const [difficulty] = useState('medium');
   const [tradeOpen, setTradeOpen] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const [howToOpen, setHowToOpen] = useState(false);
+  const [howToReturnToOptions, setHowToReturnToOptions] = useState(false);
   const [timerNow, setTimerNow] = useState(Date.now);
   const [boardZoom, setBoardZoom] = useState(1);
+  const [boardCamera, setBoardCamera] = useState({
+    offset: { x: 0, y: 0 },
+    viewMode: '3d',
+  });
   const [stageMetrics, setStageMetrics] = useState({ scale: 1, height: 576 });
   const [cardFlight, setCardFlight] = useState(null);
   const [coinBurstId, setCoinBurstId] = useState(0);
@@ -75,6 +82,13 @@ function GameRoot({ onRestart }) {
   const aiGame = forceTimeoutAI
     ? { ...game, currentPlayer: { ...game.currentPlayer, isAI: true } }
     : game;
+  const backgroundCoverScale = Math.max(1, stageMetrics.height / 572);
+  const backgroundOrigin = boardCamera.viewMode === '2d'
+    ? { x: 512, y: stageMetrics.height / 2 }
+    : {
+      x: 512 + 33 * backgroundCoverScale,
+      y: stageMetrics.height / 2 + 79 * backgroundCoverScale,
+    };
 
   useEffect(() => {
     const viewport = stageViewportRef.current;
@@ -209,6 +223,17 @@ function GameRoot({ onRestart }) {
   const finishCardFlight = useCallback((id) => {
     setCardFlight((current) => current?.id === id ? null : current);
   }, []);
+  const openBoardHowTo = () => {
+    setHowToReturnToOptions(true);
+    setOptionsOpen(false);
+    setHowToOpen(true);
+  };
+  const closeBoardHowTo = () => {
+    setHowToOpen(false);
+    if (!howToReturnToOptions) return;
+    setHowToReturnToOptions(false);
+    setOptionsOpen(true);
+  };
 
   // ── SETUP ──────────────────────────────────────────────────────
   if (game.phase === 'setup') {
@@ -218,10 +243,13 @@ function GameRoot({ onRestart }) {
       return slot.slot === 1 && saveSummary ? { slot: 1, ...saveSummary } : null;
     }).filter(Boolean);
     return (
+      <>
       <GameMenuFrame
         multiplayer={multiplayer}
         sound={sound}
         saveSlots={menuSaveSlots}
+        howToOpen={howToOpen}
+        onOpenHowTo={() => setHowToOpen(true)}
         onStartOffline={(setups, settings) => {
           clearSave();
           game.startGame(setups, settings);
@@ -239,6 +267,13 @@ function GameRoot({ onRestart }) {
           return hadManualSave || (slot === 1 && Boolean(saveSummary && clearedManualSave));
         }}
       />
+      {howToOpen && (
+        <HowToPlayOverlay
+          sound={sound}
+          onClose={() => setHowToOpen(false)}
+        />
+      )}
+      </>
     );
   }
 
@@ -249,12 +284,18 @@ function GameRoot({ onRestart }) {
 
   // ── PLAYING ─────────────────────────────────────────────────────
   return (
+    <>
     <div className="game-viewport" ref={stageViewportRef}>
       <div
         className={`game-stage${game.players.length > 3 ? ' game-stage--many-players' : ''}`}
         style={{
           '--stage-scale': stageMetrics.scale,
           '--stage-height': `${stageMetrics.height}px`,
+          '--board-scene-zoom': boardZoom,
+          '--board-camera-x': `${boardCamera.offset.x}px`,
+          '--board-camera-y': `${boardCamera.offset.y}px`,
+          '--board-background-origin-x': `${backgroundOrigin.x}px`,
+          '--board-background-origin-y': `${backgroundOrigin.y}px`,
         }}
       >
         <div className="game-stage-brand" aria-label="Millionaire Indonesia">
@@ -297,6 +338,7 @@ function GameRoot({ onRestart }) {
               gameState={gameView}
               zoom={boardZoom}
               onZoomChange={setBoardZoom}
+              onCameraChange={setBoardCamera}
               onDrawCard={drawCardFromBoard}
             />
             {coinBurstId > 0 && <CoinBurstEffect key={coinBurstId} />}
@@ -329,6 +371,7 @@ function GameRoot({ onRestart }) {
               game={gameView}
               sound={sound}
               onClose={() => setOptionsOpen(false)}
+              onOpenHowTo={openBoardHowTo}
               onQuit={exitToMenu}
             />
           )}
@@ -338,5 +381,12 @@ function GameRoot({ onRestart }) {
         <div>📱↻<br />Putar perangkat ke mode landscape</div>
       </div>
     </div>
+    {howToOpen && (
+      <HowToPlayOverlay
+        sound={sound}
+        onClose={closeBoardHowTo}
+      />
+    )}
+    </>
   );
 }

@@ -14,7 +14,7 @@ export default function BuildingModel({ kind }) {
 
   return (
     <span
-      className={`bld bld--${kind} bld-model`}
+      className={`bld bld--${kind} bld-model bld-model--${kind}`}
       data-building={kind}
       data-model-ready={ready ? 'true' : 'false'}
       title={kind === 'hotel' ? 'Hotel' : 'Rumah'}

@@ -5,7 +5,7 @@ import {
 } from '../../utils/saveGame';
 import '../../styles/game-options.css';
 
-const OPTIONS_ART = { src: '/assets/game-options-reference.png', width: 1373, height: 768 };
+const OPTIONS_ART = { src: '/assets/game-options-reference.png?v=3', width: 1373, height: 768 };
 const SAVES_ART = { src: '/assets/game-save-reference.png', width: 1375, height: 768 };
 const SAVE_CARDS = [
   { x: 159, y: 194, width: 349, height: 435 },
@@ -257,7 +257,9 @@ function ContactPage({ onClose, sound }) {
   );
 }
 
-export default function GameOptionsOverlay({ game, sound, onClose, onQuit }) {
+export default function GameOptionsOverlay({
+  game, sound, onClose, onQuit, onOpenHowTo,
+}) {
   const [page, setPage] = useState('options');
   const [slots, setSlots] = useState(peekSaveSlots);
   const [notice, setNotice] = useState('');
@@ -453,8 +455,11 @@ export default function GameOptionsOverlay({ game, sound, onClose, onQuit }) {
         className="game-reference-hit"
         style={percentageBox(403, 505, 277, 75, OPTIONS_ART)}
         type="button"
-        aria-label="Cara bermain (segera hadir)"
-        disabled
+        aria-label="Cara bermain"
+        onClick={() => {
+          sound.play('click');
+          onOpenHowTo?.();
+        }}
       />
       <button
         className="game-reference-hit"

@@ -63,7 +63,50 @@ const buildSquareLayout = (squares) => {
 const SSQW = (BOARD.SIZE - 2 * BOARD.CORNER_SIZE) / BOARD.SQUARES_PER_SIDE; // ≈62.22
 const C    = BOARD.CORNER_SIZE;                                               // 100
 const BOARD_OUTER_WIDTH = BOARD.SIZE + 48;
-const BOARD_RIGHT_EDGE = 676;
+const BOARD_LEFT_SAFE_PADDING = 32;
+const BOARD_BACKGROUND_WIDTH = 1024;
+const BOARD_BACKGROUND_HEIGHT = 572;
+const BOARD_TABLE_CENTER_X = 545;
+const BOARD_TABLE_CENTER_Y = 365;
+const BOARD_TABLE_WIDTH = 800;
+const BOARD_TABLE_HEIGHT = 330;
+const BOARD_TABLE_FILL_RATIO = 0.82;
+const BOARD_2D_FILL_RATIO = 1;
+const BOARD_TILT_DEGREES = 68;
+const BOARD_TILT_RADIANS = BOARD_TILT_DEGREES * Math.PI / 180;
+const BOARD_HEIGHT_PROJECTION = Math.cos(BOARD_TILT_RADIANS);
+const BOARD_ROTATION_Z_DEGREES = 0;
+const BOARD_ROTATION_Z_RADIANS = BOARD_ROTATION_Z_DEGREES * Math.PI / 180;
+const BOARD_ROTATION_Z_COS = Math.cos(BOARD_ROTATION_Z_RADIANS);
+const BOARD_ROTATION_Z_SIN = Math.sin(BOARD_ROTATION_Z_RADIANS);
+const BOARD_PERSPECTIVE_GUARD = 1.1;
+const getBackgroundCoverScale = (width, height) =>
+  Math.max(width / BOARD_BACKGROUND_WIDTH, height / BOARD_BACKGROUND_HEIGHT);
+const getBoardCenterX = (width, height, viewMode) => {
+  if (viewMode === '2d') return width / 2;
+  const backgroundScale = getBackgroundCoverScale(width, height);
+  return width / 2 + (BOARD_TABLE_CENTER_X - BOARD_BACKGROUND_WIDTH / 2) * backgroundScale;
+};
+const getBoardCenterY = (width, height, viewMode) => {
+  if (viewMode === '2d') return height / 2;
+  const backgroundScale = getBackgroundCoverScale(width, height);
+  return height / 2 + (BOARD_TABLE_CENTER_Y - BOARD_BACKGROUND_HEIGHT / 2) * backgroundScale;
+};
+const getProjectedBoardSize = (width, height, viewMode) => {
+  const isTopDown = viewMode === '2d';
+  const heightProjection = isTopDown ? 1 : BOARD_HEIGHT_PROJECTION;
+  const perspectiveGuard = isTopDown ? 1 : BOARD_PERSPECTIVE_GUARD;
+  return {
+    width: (
+      width * BOARD_ROTATION_Z_COS +
+      height * BOARD_ROTATION_Z_SIN
+    ) * perspectiveGuard,
+    height: (
+      width * BOARD_ROTATION_Z_SIN +
+      height * BOARD_ROTATION_Z_COS
+    ) * heightProjection * perspectiveGuard,
+  };
+};
 
 export const getSquarePxCenter = (id, map = 'nusantara') => {
   const squares = getSquaresForMap(map);
@@ -128,10 +171,11 @@ const GROUP_OFFSETS = [
  *   gameState — full state dari useGameState():
  *     players, owners, houses, hotels, landResult, freeParkingPool
  */
-const Board = ({ gameState, zoom: controlledZoom, onZoomChange, onDrawCard }) => {
+const Board = ({ gameState, zoom: controlledZoom, onZoomChange, onCameraChange, onDrawCard }) => {
   const viewportRef = useRef(null);
   const [fitScale, setFitScale] = useState(1);
   const [localZoom, setLocalZoom] = useState(1);
+  const [viewMode, setViewMode] = useState('3d');
   const [cameraOffset, setCameraOffset] = useState({ x: 0, y: 0 });
   const pointersRef = useRef(new Map());
   const gestureRef = useRef(null);
@@ -141,6 +185,10 @@ const Board = ({ gameState, zoom: controlledZoom, onZoomChange, onDrawCard }) =>
   const zoom = controlledZoom ?? localZoom;
   cameraOffsetRef.current = cameraOffset;
   zoomRef.current = zoom;
+  useEffect(() => {
+    onCameraChange?.({ offset: cameraOffset, viewMode });
+  }, [cameraOffset, viewMode, onCameraChange]);
+
   const map = gameState?.settings?.map ?? 'nusantara';
   const squares = getSquaresForMap(map);
   const { layout: squareLayout, sideCount } = useMemo(
@@ -151,11 +199,14 @@ const Board = ({ gameState, zoom: controlledZoom, onZoomChange, onDrawCard }) =>
   const boardHeight = 2 * C + sideCount * SSQW;
   const boardOuterHeight = boardHeight + 48;
   const clampCameraOffset = (offset, scale, viewport) => {
-    const boardWidth = BOARD_OUTER_WIDTH * scale;
-    const boardScaledHeight = boardOuterHeight * scale;
-    const boardLeft = BOARD_RIGHT_EDGE - boardWidth;
-    const boardRight = BOARD_RIGHT_EDGE;
-    const boardTop = (viewport.clientHeight - boardScaledHeight) / 2;
+    const projectedBoard = getProjectedBoardSize(BOARD_OUTER_WIDTH, boardOuterHeight, viewMode);
+    const boardWidth = projectedBoard.width * scale;
+    const boardScaledHeight = projectedBoard.height * scale;
+    const boardCenterX = getBoardCenterX(viewport.clientWidth, viewport.clientHeight, viewMode);
+    const boardLeft = boardCenterX - boardWidth / 2;
+    const boardRight = boardCenterX + boardWidth / 2;
+    const boardCenterY = getBoardCenterY(viewport.clientWidth, viewport.clientHeight, viewMode);
+    const boardTop = boardCenterY - boardScaledHeight / 2;
     const boardBottom = boardTop + boardScaledHeight;
     const horizontalMin = boardWidth >= viewport.clientWidth
       ? viewport.clientWidth - boardRight
@@ -189,17 +240,41 @@ const Board = ({ gameState, zoom: controlledZoom, onZoomChange, onDrawCard }) =>
     if (!viewport) return undefined;
 
     const updateScale = () => {
+      const projectedBoard = getProjectedBoardSize(BOARD_OUTER_WIDTH, boardOuterHeight, viewMode);
+      const boardCenterX = getBoardCenterX(viewport.clientWidth, viewport.clientHeight, viewMode);
+      const boardCenterY = getBoardCenterY(viewport.clientWidth, viewport.clientHeight, viewMode);
+      if (viewMode === '2d') {
+        const availableWidth = Math.max(0, viewport.clientWidth - 64);
+        const availableHeight = viewport.clientHeight;
+        setFitScale(Math.min(
+          availableWidth / projectedBoard.width,
+          availableHeight / projectedBoard.height
+        ) * BOARD_2D_FILL_RATIO);
+        return;
+      }
+
+      const coverScale = getBackgroundCoverScale(viewport.clientWidth, viewport.clientHeight);
+      const centeredWidth = Math.max(
+        0,
+        2 * Math.min(boardCenterX, viewport.clientWidth - boardCenterX) -
+          2 * BOARD_LEFT_SAFE_PADDING
+      );
+      const centeredHeight = Math.max(
+        0,
+        2 * Math.min(boardCenterY, viewport.clientHeight - boardCenterY)
+      );
+      const tableWidth = Math.min(BOARD_TABLE_WIDTH * coverScale, centeredWidth);
+      const tableHeight = Math.min(BOARD_TABLE_HEIGHT * coverScale, centeredHeight);
       setFitScale(Math.min(
-        viewport.clientWidth / BOARD_OUTER_WIDTH,
-        viewport.clientHeight / boardOuterHeight,
-        BOARD_RIGHT_EDGE / BOARD_OUTER_WIDTH
+        (tableWidth * BOARD_TABLE_FILL_RATIO) / projectedBoard.width,
+        (tableHeight * BOARD_TABLE_FILL_RATIO) / projectedBoard.height
       ));
     };
     const observer = new ResizeObserver(updateScale);
     observer.observe(viewport);
     updateScale();
     return () => observer.disconnect();
-  }, [boardOuterHeight]);
+  }, [boardOuterHeight, viewMode]);
 
   const moveCamera = (nextOffset) => {
     cameraOffsetRef.current = nextOffset;
@@ -232,15 +307,32 @@ const Board = ({ gameState, zoom: controlledZoom, onZoomChange, onDrawCard }) =>
 
     const currentScale = fitScale * currentZoom;
     const nextScale = fitScale * nextZoom;
-    const currentCenterX =
-      BOARD_RIGHT_EDGE - (BOARD_OUTER_WIDTH * currentScale) / 2 + cameraOffsetRef.current.x;
-    const currentCenterY = viewport.clientHeight / 2 + cameraOffsetRef.current.y;
-    const worldX = (point.x - currentCenterX) / currentScale;
-    const worldY = (point.y - currentCenterY) / currentScale;
+    const boardCenterX = getBoardCenterX(viewport.clientWidth, viewport.clientHeight, viewMode);
+    const boardCenterY = getBoardCenterY(viewport.clientWidth, viewport.clientHeight, viewMode);
+    const heightProjection = viewMode === '2d' ? 1 : BOARD_HEIGHT_PROJECTION;
+    const perspectiveGuard = viewMode === '2d' ? 1 : BOARD_PERSPECTIVE_GUARD;
+    const currentCenterX = boardCenterX + cameraOffsetRef.current.x;
+    const currentCenterY = boardCenterY + cameraOffsetRef.current.y;
+    const projectedX =
+      (point.x - currentCenterX) / (currentScale * perspectiveGuard);
+    const projectedY =
+      (point.y - currentCenterY) /
+      (currentScale * heightProjection * perspectiveGuard);
+    const worldX =
+      projectedX * BOARD_ROTATION_Z_COS + projectedY * BOARD_ROTATION_Z_SIN;
+    const worldY =
+      -projectedX * BOARD_ROTATION_Z_SIN + projectedY * BOARD_ROTATION_Z_COS;
+    const nextProjectedX =
+      worldX * BOARD_ROTATION_Z_COS - worldY * BOARD_ROTATION_Z_SIN;
+    const nextProjectedY =
+      worldX * BOARD_ROTATION_Z_SIN + worldY * BOARD_ROTATION_Z_COS;
     const nextCameraOffset = {
-      x: point.x - worldX * nextScale -
-        (BOARD_RIGHT_EDGE - (BOARD_OUTER_WIDTH * nextScale) / 2),
-      y: point.y - worldY * nextScale - viewport.clientHeight / 2,
+      x: point.x -
+        nextProjectedX * nextScale * perspectiveGuard -
+        boardCenterX,
+      y: point.y -
+        nextProjectedY * nextScale * heightProjection * perspectiveGuard -
+        boardCenterY,
     };
 
     moveCamera(clampCameraOffset(nextCameraOffset, nextScale, viewport));
@@ -345,6 +437,7 @@ const Board = ({ gameState, zoom: controlledZoom, onZoomChange, onDrawCard }) =>
     gestureRef.current = null;
   };
   const handleClickCapture = (event) => {
+    if (event.target.closest('.board-view-toggle')) return;
     if (!suppressClickRef.current) return;
     suppressClickRef.current = false;
     event.preventDefault();
@@ -366,11 +459,15 @@ const Board = ({ gameState, zoom: controlledZoom, onZoomChange, onDrawCard }) =>
 
   // ID petak yang sedang di-highlight (hasil landing)
   const highlightedId = landResult?.square?.id ?? null;
-  const boardSize = BOARD_OUTER_WIDTH * fitScale * zoom;
+  const toggleViewMode = () => {
+    setViewMode((current) => current === '3d' ? '2d' : '3d');
+    moveCamera({ x: 0, y: 0 });
+    updateZoom(1);
+  };
 
   return (
     <div
-      className="board2d-viewport"
+      className={`board2d-viewport board-view--${viewMode}`}
       ref={viewportRef}
       onWheel={handleWheel}
       onPointerDown={handlePointerDown}
@@ -381,6 +478,20 @@ const Board = ({ gameState, zoom: controlledZoom, onZoomChange, onDrawCard }) =>
       onDragStart={(event) => event.preventDefault()}
       style={{ aspectRatio: `${BOARD_OUTER_WIDTH} / ${boardOuterHeight}` }}
     >
+    <button
+      type="button"
+      className="board-view-toggle"
+      aria-pressed={viewMode === '2d'}
+      aria-label={`Beralih ke tampilan ${viewMode === '3d' ? '2D' : '3D'}`}
+      title={`Beralih ke tampilan ${viewMode === '3d' ? '2D' : '3D'}`}
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={(event) => {
+        event.stopPropagation();
+        toggleViewMode();
+      }}
+    >
+      {viewMode === '3d' ? '2D' : '3D'}
+    </button>
     <div
       className="board-camera"
       style={{
@@ -390,13 +501,21 @@ const Board = ({ gameState, zoom: controlledZoom, onZoomChange, onDrawCard }) =>
     <div
       className="board-outer"
       style={{
-        left: `${BOARD_RIGHT_EDGE - boardSize / 2}px`,
-        top: '50%',
+        left: `${getBoardCenterX(
+          viewportRef.current?.clientWidth || 0,
+          viewportRef.current?.clientHeight || 0,
+          viewMode
+        )}px`,
+        top: `${getBoardCenterY(
+          viewportRef.current?.clientWidth || 0,
+          viewportRef.current?.clientHeight || 0,
+          viewMode
+        )}px`,
         width: `${BOARD_OUTER_WIDTH}px`,
         height: `${boardOuterHeight}px`,
         marginLeft: `${-BOARD_OUTER_WIDTH / 2}px`,
         marginTop: `${-boardOuterHeight / 2}px`,
-        transform: `scale(${fitScale * zoom})`,
+        transform: `${viewMode === '2d' ? '' : `rotateX(${BOARD_TILT_DEGREES}deg) `}rotateZ(${BOARD_ROTATION_Z_DEGREES}deg) scale(${fitScale * zoom})`,
       }}
     >
       {/* Bingkai emas dekoratif */}

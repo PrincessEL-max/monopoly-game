@@ -21,8 +21,10 @@
   border-radius: 10px;
   box-shadow:
     0 0 0 3px #7a5810,
-    0 16px 48px rgba(0, 0, 0, 0.75),
-    0 4px 16px rgba(0, 0, 0, 0.5);
+    0 4px 0 #79551a,
+    0 8px 0 #4d341b,
+    0 12px 30px rgba(0, 0, 0, 0.55),
+    0 3px 12px rgba(0, 0, 0, 0.35);
 }
 
 .board-frame {
@@ -59,7 +61,7 @@
   position: absolute;
   top: 0;
   left: 0;
-  transform-origin: top left;
+  transform-origin: center center;
   pointer-events: auto;
   user-select: none;
   -webkit-user-drag: none;

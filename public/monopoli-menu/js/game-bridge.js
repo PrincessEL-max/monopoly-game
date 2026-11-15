@@ -8,7 +8,7 @@
   const handlers = [
     'offline', 'online', 'back', 'start', 'quick', 'quickcancel', 'quickfound',
     'create', 'join', 'roominvite', 'roombot', 'roomremove', 'disband',
-    'invite', 'friendsearch', 'addfriend', 'loadgame', 'deletesave',
+    'invite', 'friendsearch', 'addfriend', 'loadgame', 'deletesave', 'howto',
   ];
   handlers.forEach((name) => {
     GameMenu.on(name, (detail) => {
@@ -74,6 +74,12 @@
         break;
       case 'saves':
         GameMenu.setSaves(message.detail || []);
+        break;
+      case 'hide-popup':
+        GameMenu.closePopup();
+        break;
+      case 'open-options':
+        GameMenu.openOptions();
         break;
       default:
         break;

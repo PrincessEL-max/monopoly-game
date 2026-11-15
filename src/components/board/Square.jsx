@@ -68,6 +68,7 @@ export default function Square({
   const imgSrc = image ? LANDMARK_IMAGES[image] : null;
   const priceLabel = price ? `Rp ${fmtMoney(price)}` : (amount ? `-Rp ${fmtMoney(amount)}` : '');
   const flag = subtitle ? COUNTRY_FLAG[subtitle] : null;
+  const buildingCount = hasHotel ? 1 : houseCount;
 
   return (
     <div
@@ -141,7 +142,10 @@ export default function Square({
 
       {/* Rumah / hotel (tidak ikut diputar, selalu di tepi luar) */}
       {(houseCount > 0 || hasHotel) && (
-        <div className={`sq__buildings sq__buildings--${side}`} aria-hidden="true">
+        <div
+          className={`sq__buildings sq__buildings--${side} sq__buildings--count-${buildingCount}`}
+          aria-hidden="true"
+        >
           {hasHotel
             ? <BuildingModel kind="hotel" />
             : Array.from({ length: houseCount }).map((_, i) => (

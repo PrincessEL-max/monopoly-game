@@ -12,15 +12,20 @@ const MULTIPLAYER_MESSAGE_TYPES = new Set([
 ]);
 
 export default function GameMenuFrame({
-  multiplayer, sound, onStartOffline, onLoadSlot, onDeleteSave, saveSlots,
+  multiplayer, sound, onStartOffline, onLoadSlot, onDeleteSave, onOpenHowTo, howToOpen = false, saveSlots,
 }) {
   const frameRef = useRef(null);
   const handlerRef = useRef(null);
   const roomInviteCodeRef = useRef(new URLSearchParams(window.location.search).get('room'));
   const roomInviteHandledRef = useRef(false);
   const matchPollRef = useRef({ active: false, timer: null });
-  const latestRef = useRef({ multiplayer, sound, onStartOffline, onLoadSlot, onDeleteSave, saveSlots });
-  latestRef.current = { multiplayer, sound, onStartOffline, onLoadSlot, onDeleteSave, saveSlots };
+  const previousHowToOpenRef = useRef(false);
+  const latestRef = useRef({
+    multiplayer, sound, onStartOffline, onLoadSlot, onDeleteSave, onOpenHowTo, saveSlots,
+  });
+  latestRef.current = {
+    multiplayer, sound, onStartOffline, onLoadSlot, onDeleteSave, onOpenHowTo, saveSlots,
+  };
 
   const send = useCallback((type, detail) => {
     frameRef.current?.contentWindow?.postMessage(
@@ -236,6 +241,9 @@ export default function GameMenuFrame({
         case 'settings':
           if (detail.sfx !== currentSound.enabled) currentSound.setEnabled(detail.sfx);
           break;
+        case 'howto':
+          current.onOpenHowTo?.();
+          break;
         default:
           break;
       }
@@ -264,6 +272,12 @@ export default function GameMenuFrame({
     syncSocial();
     syncRoom();
   }, [multiplayer.room, multiplayer.social, multiplayer.isHost, multiplayer.error, syncRoom, syncSocial]);
+
+  useEffect(() => {
+    if (previousHowToOpenRef.current === howToOpen) return;
+    previousHowToOpenRef.current = howToOpen;
+    send(howToOpen ? 'hide-popup' : 'open-options');
+  }, [howToOpen, send]);
 
   return (
     <div className="game-menu-frame">

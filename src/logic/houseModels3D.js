@@ -8,7 +8,7 @@ const createBuildingModel = (source) => {
   const bounds = new THREE.Box3().setFromObject(model);
   const size = bounds.getSize(new THREE.Vector3());
   const center = bounds.getCenter(new THREE.Vector3());
-  const scale = 1.35 / Math.max(size.x, size.y, size.z);
+  const scale = 1.65 / Math.max(size.x, size.y, size.z);
   model.scale.setScalar(scale);
   model.position.set(-center.x * scale, -bounds.min.y * scale, -center.z * scale);
   return model;
@@ -36,8 +36,8 @@ export const startHouseRenderer = () => {
       document.body.appendChild(renderer.domElement);
 
       const scene = new THREE.Scene();
-      const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 20);
-      camera.position.set(2.2, 2, 3.2);
+      const camera = new THREE.PerspectiveCamera(18, 1, 0.1, 20);
+      camera.position.set(0.8, 2.4, 5.5);
       camera.lookAt(0, 0.55, 0);
       scene.add(new THREE.AmbientLight('#ffffff', 1.8));
       const keyLight = new THREE.DirectionalLight('#fff0c8', 2.8);
@@ -71,19 +71,29 @@ export const startHouseRenderer = () => {
 
         document.querySelectorAll('.bld-model[data-model-ready="true"]').forEach((element) => {
           const rect = element.getBoundingClientRect();
-          const left = Math.max(0, rect.left);
-          const right = Math.min(width, rect.right);
-          const top = Math.max(0, rect.top);
-          const bottom = Math.min(height, rect.bottom);
-          if (right <= left || bottom <= top || rect.width <= 0 || rect.height <= 0) return;
+          const left = rect.left;
+          const right = rect.right;
+          const top = rect.top;
+          const bottom = rect.bottom;
+          const clippedLeft = Math.max(0, left);
+          const clippedRight = Math.min(width, right);
+          const clippedTop = Math.max(0, top);
+          const clippedBottom = Math.min(height, bottom);
+          if (clippedRight <= clippedLeft || clippedBottom <= clippedTop || rect.width <= 0 || rect.height <= 0) return;
 
           const model = models.get(element.dataset.building);
           if (!model) return;
           models.forEach((candidate) => { candidate.visible = false; });
           model.visible = true;
-          model.rotation.y = Math.sin(timestamp * 0.00025) * 0.12;
-          renderer.setViewport(rect.left, height - rect.bottom, rect.width, rect.height);
-          renderer.setScissor(left, height - bottom, right - left, bottom - top);
+          camera.aspect = rect.width / rect.height;
+          camera.updateProjectionMatrix();
+          renderer.setViewport(left, height - bottom, rect.width, rect.height);
+          renderer.setScissor(
+            clippedLeft,
+            height - clippedBottom,
+            clippedRight - clippedLeft,
+            clippedBottom - clippedTop
+          );
           renderer.clear(true, true, true);
           renderer.render(scene, camera);
         });
