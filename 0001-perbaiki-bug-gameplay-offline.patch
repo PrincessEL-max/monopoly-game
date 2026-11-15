@@ -1,0 +1,625 @@
+From 0d64de745a7f894608a8465e6a92b9e70975955f Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 15 Nov 2026 00:38:55 +0000
+Subject: [PATCH] Perbaiki bug gameplay offline (giliran, AI beku, denda
+ penjara, save/load, acak kartu, suara)
+
+- useAI: AI tidak lagi beku setelah giliran digeser reducer (masuk penjara,
+  gagal keluar penjara, double 3x, bangkrut). Flag turnEnded ikut terbawa ke
+  pemain berikutnya dan sebelumnya membuat efek AI langsung return.
+- useAI: AI tidak memanggil payJailFine saat uang kurang (no-op -> macet).
+- getNextTurn dipindah ke logic/turnLogic.js dan diperbaiki: setelah pemain
+  bangkrut, giliran ke pemain berikutnya di meja, bukan selalu ke pemain
+  aktif pertama.
+- Denda penjara paksa (giliran ke-3) tidak lagi membuat uang minus: pemain
+  masuk alur RAISE_FUNDS (kind 'jail_fine'), lemparan dadu dilanjutkan
+  setelah lunas; denda tidak masuk Parkir Gratis.
+- Save/load: snapshot menyimpan turnState (waitingFor, canRoll, landResult,
+  pendingDebt, auction, dst.) dan LOAD_GAME memulihkannya, sehingga memuat
+  save di tengah giliran tidak menghapus utang/sewa atau memberi lemparan
+  baru. Save lama tetap kompatibel. Autosave dipicu field yang relevan.
+- Acak kartu memakai Fisher-Yates (utils/shuffle.js), menggantikan
+  sort(() => Math.random() - 0.5) yang bias. Kartu Bebas Penjara yang
+  sedang dipegang pemain tidak ikut diacak ulang.
+- Suara berbasis log kini bekerja (utils/logSound.js): sebelumnya regex
+  diuji pada objek log dan membaca entri terlama, sehingga tidak pernah
+  cocok. Pola 'MULAI' ditambahkan.
+- Tambah tes (turnLogic, shuffle, logSound, snapshot saveGame) dan script
+  "npm test" (node --test).
+---
+ package.json                |  3 +-
+ src/App.jsx                 | 26 +++++++-----
+ src/constants/cards.js      |  4 +-
+ src/hooks/useAI.js          | 14 ++++---
+ src/logic/cardLogic.js      | 12 ++++--
+ src/logic/gameLogic.js      | 22 ++--------
+ src/logic/gameReducer.js    | 80 ++++++++++++++++++++++++++++++-------
+ src/logic/turnLogic.js      | 21 ++++++++++
+ src/logic/turnLogic.test.js | 34 ++++++++++++++++
+ src/utils/logSound.js       | 20 ++++++++++
+ src/utils/logSound.test.js  | 21 ++++++++++
+ src/utils/saveGame.js       | 15 +++++++
+ src/utils/saveGame.test.js  | 26 ++++++++++++
+ src/utils/shuffle.js        | 18 +++++++++
+ src/utils/shuffle.test.js   | 35 ++++++++++++++++
+ 15 files changed, 295 insertions(+), 56 deletions(-)
+ create mode 100644 src/logic/turnLogic.js
+ create mode 100644 src/logic/turnLogic.test.js
+ create mode 100644 src/utils/logSound.js
+ create mode 100644 src/utils/logSound.test.js
+ create mode 100644 src/utils/shuffle.js
+ create mode 100644 src/utils/shuffle.test.js
+
+diff --git a/package.json b/package.json
+index 6f764a6..996c0bd 100644
+--- a/package.json
++++ b/package.json
+@@ -6,7 +6,8 @@
+   "scripts": {
+     "dev": "vite",
+     "build": "vite build",
+-    "preview": "vite preview"
++    "preview": "vite preview",
++    "test": "node --test"
+   },
+   "dependencies": {
+     "@supabase/server": "^1.9.2",
+diff --git a/src/App.jsx b/src/App.jsx
+index e4e7710..d47310c 100644
+--- a/src/App.jsx
++++ b/src/App.jsx
+@@ -21,6 +21,7 @@ import {
+   peekSaveSlots,
+   saveGame,
+ } from './utils/saveGame';
++import { soundForLogText } from './utils/logSound';
+ import ControlPanel from './components/ui/ControlPanel';
+ import GameMenuFrame from './components/screens/GameMenuFrame';
+ import EndScreen from './components/screens/EndScreen';
+@@ -134,7 +135,12 @@ function GameRoot({ onRestart }) {
+   useEffect(() => {
+     if (game.phase === 'playing' && !multiplayer.room) saveGame(game);
+     if (game.phase === 'ended' && !multiplayer.room) clearSave();
+-  }, [game.players, game.currentPlayerIndex, game.waitingFor, game.phase, game.owners, multiplayer.room]);
++  }, [
++    game.players, game.currentPlayerIndex, game.waitingFor, game.phase, game.owners,
++    game.houses, game.hotels, game.freeParkingPool, game.canRoll, game.landResult,
++    game.activeCard, game.auction, game.pendingDebt, game.pendingTrade,
++    multiplayer.room,
++  ]);
+ 
+   useEffect(() => {
+     const previous = coinStateRef.current;
+@@ -158,7 +164,7 @@ function GameRoot({ onRestart }) {
+   }, [game.players, game.phase, game.log]);
+ 
+   // ── SUARA: picu efek berdasar perubahan state ──────────────────
+-  const prevRef = useRef({ roll: null, waitingFor: null, phase: 'setup', logLen: 0 });
++  const prevRef = useRef({ roll: null, waitingFor: null, phase: 'setup', logKey: null });
+   useEffect(() => {
+     const prev = prevRef.current;
+ 
+@@ -169,13 +175,13 @@ function GameRoot({ onRestart }) {
+       else if (game.waitingFor === 'DRAW_CARD') sound.play('click');
+     }
+ 
+-    // Deteksi event tertentu dari baris log terbaru
+-    if (game.log.length > prev.logLen) {
+-      const latest = game.log[game.log.length - 1] || '';
+-      if (/membeli|memenangkan lelang/i.test(latest)) sound.play('buy');
+-      else if (/menerima|bonus|START/i.test(latest)) sound.play('money');
+-      else if (/penjara/i.test(latest)) sound.play('jail');
+-      else if (/bangkrut/i.test(latest)) sound.play('lose');
++    // Deteksi event tertentu dari baris log terbaru. Entri baru ada di log[0]
++    // (log dibatasi 50 baris, jadi panjang log tidak bisa dipakai sebagai penanda).
++    const latestLog = game.log[0];
++    const logKey = latestLog ? `${latestLog.ts}:${latestLog.text}` : null;
++    if (logKey && logKey !== prev.logKey && prev.phase === 'playing' && game.phase === 'playing') {
++      const logSound = soundForLogText(latestLog.text);
++      if (logSound) sound.play(logSound);
+     }
+ 
+     if (game.phase === 'ended' && prev.phase !== 'ended') sound.play('win');
+@@ -184,7 +190,7 @@ function GameRoot({ onRestart }) {
+       roll: game.lastRoll,
+       waitingFor: game.waitingFor,
+       phase: game.phase,
+-      logLen: game.log.length,
++      logKey,
+     };
+   }, [game.lastRoll, game.waitingFor, game.phase, game.log, sound]);
+ 
+diff --git a/src/constants/cards.js b/src/constants/cards.js
+index 8d8e5d0..04afac4 100644
+--- a/src/constants/cards.js
++++ b/src/constants/cards.js
+@@ -1,5 +1,6 @@
+ // Card effects are normalized from the supplied ZIP data for the game reducer.
+ import cardData from './millionaire-cards.json';
++import { shuffle } from '../utils/shuffle.js';
+ 
+ const ACTION_TYPES = {
+   receive: 'collect',
+@@ -39,5 +40,4 @@ const normalizeCard = (card) => ({
+ export const CHANCE_CARDS = cardData.chance.map(normalizeCard);
+ export const COMMUNITY_CHEST_CARDS = cardData.community_chest.map(normalizeCard);
+ 
+-export const shuffleDeck = (deck) =>
+-  [...deck].sort(() => Math.random() - 0.5);
++export const shuffleDeck = (deck) => shuffle(deck);
+diff --git a/src/hooks/useAI.js b/src/hooks/useAI.js
+index 5f0c690..9164da9 100644
+--- a/src/hooks/useAI.js
++++ b/src/hooks/useAI.js
+@@ -81,11 +81,12 @@ export const useAI = (gameState, actions, difficulty = 'medium', enabled = true,
+     };
+     const turnDifficulty = currentPlayer.difficulty || difficulty;
+ 
+-    // Giliran sudah digeser reducer sendiri (go_to_jail, triple double, dll)
+-    // Tidak perlu aksi tambahan — clear timer pending dan return.
++    // Giliran baru saja digeser reducer sendiri (go_to_jail, triple double,
++    // gagal keluar penjara, bangkrut). Batalkan timer yang masih menggantung
++    // dari pemain sebelumnya, tapi JANGAN berhenti: flag `turnEnded` ikut
++    // terbawa ke pemain berikutnya, dan kalau dia AI, dialah yang harus main.
+     if (turnEnded) {
+       clearTimeout(timerRef.current);
+-      return;
+     }
+ 
+     // ── RESPONS TRADE MASUK ──────────────────────────────────
+@@ -175,12 +176,13 @@ export const useAI = (gameState, actions, difficulty = 'medium', enabled = true,
+               useJailFreeCard('community_chest');
+               return;
+             }
+-            if (currentPlayer.jailTurns < 2) {
+-              // Masih bisa tunggu double, langsung roll
+-            } else {
++            if (currentPlayer.jailTurns >= 2 && currentPlayer.money >= RULES.JAIL_FINE) {
+               payJailFine();
+               return;
+             }
++            // Masih bisa tunggu double — atau tidak mampu bayar denda:
++            // langsung roll (payJailFine tanpa uang tidak mengubah state
++            // sehingga AI akan macet).
+           }
+         }
+ 
+diff --git a/src/logic/cardLogic.js b/src/logic/cardLogic.js
+index fe79a3b..7df0ec7 100644
+--- a/src/logic/cardLogic.js
++++ b/src/logic/cardLogic.js
+@@ -9,6 +9,7 @@ import {
+ } from './gameLogic.js';
+ import { calcRepairCost } from './rentLogic.js';
+ import { RULES } from '../constants/config.js';
++import { shuffle } from '../utils/shuffle.js';
+ import { getSquaresForMap } from '../constants/squares.js';
+ 
+ // ─────────────────────────────────────────────────────────────
+@@ -316,11 +317,16 @@ const fmt = (n) => n?.toLocaleString('id-ID') ?? '0';
+ 
+ /**
+  * Ambil kartu teratas dari deck, return { card, newDeck }
+- * Jika deck kosong, shuffle ulang dari source
++ * Jika deck kosong, shuffle ulang dari source (kecuali kartu di `excludeIds`)
+  */
+-export const drawFromDeck = (deck, sourceCards) => {
++export const drawFromDeck = (deck, sourceCards, excludeIds = []) => {
+   if (!deck || deck.length === 0) {
+-    const reshuffled = [...sourceCards].sort(() => Math.random() - 0.5);
++    // Kartu yang sedang dipegang pemain (mis. Bebas Penjara) tidak ikut diacak
++    // ulang, agar tidak ada duplikat kartu yang sama di tangan dan di deck.
++    const pool = excludeIds.length > 0
++      ? sourceCards.filter((card) => !excludeIds.includes(card.id))
++      : sourceCards;
++    const reshuffled = shuffle(pool);
+     return { card: reshuffled[0], newDeck: reshuffled.slice(1) };
+   }
+   const [card, ...newDeck] = deck;
+diff --git a/src/logic/gameLogic.js b/src/logic/gameLogic.js
+index b6dcf99..2fff0fd 100644
+--- a/src/logic/gameLogic.js
++++ b/src/logic/gameLogic.js
+@@ -11,8 +11,9 @@ import { RULES, SPECIAL_POSITIONS } from '../constants/config.js';
+ import { shuffleDeck, CHANCE_CARDS, COMMUNITY_CHEST_CARDS } from '../constants/cards.js';
+ import { calculateRent } from './rentLogic.js';
+ import { calcNewPosition, findNearest, positionComesAfter } from './routeLogic.js';
++import { getNextTurn } from './turnLogic.js';
+ 
+-export { calcNewPosition, findNearest, positionComesAfter };
++export { calcNewPosition, findNearest, positionComesAfter, getNextTurn };
+ 
+ // ─────────────────────────────────────────────────────────────
+ // DICE
+@@ -485,24 +486,7 @@ export const transferMoney = (fromPlayer, toPlayer, amount) => {
+   return { fromPatch, toPatch, bankrupt: fromPlayer.money - amount < RULES.BANKRUPTCY_THRESHOLD };
+ };
+ 
+-// ─────────────────────────────────────────────────────────────
+-// NEXT TURN
+-// ─────────────────────────────────────────────────────────────
+-
+-/**
+- * Tentukan pemain berikutnya
+- * Jika double dan tidak masuk penjara → giliran sama
+- */
+-export const getNextTurn = (currentIndex, players, rolledDouble, wentToJail) => {
+-  if (rolledDouble && !wentToJail) return currentIndex; // giliran lagi
+-  const activePlayers = players.filter((p) => !p.bankrupt);
+-  const currentActiveIndex = activePlayers.findIndex(
+-    (p) => p.id === players[currentIndex].id
+-  );
+-  return players.findIndex(
+-    (p) => p.id === activePlayers[(currentActiveIndex + 1) % activePlayers.length].id
+-  );
+-};
++// getNextTurn → lihat turnLogic.js (di-re-export di bagian atas file ini)
+ 
+ // ─────────────────────────────────────────────────────────────
+ // INITIAL STATE
+diff --git a/src/logic/gameReducer.js b/src/logic/gameReducer.js
+index afd541f..fc23c3e 100644
+--- a/src/logic/gameReducer.js
++++ b/src/logic/gameReducer.js
+@@ -287,6 +287,29 @@ const reduceGame = (state, action) => {
+           };
+         }
+ 
++        // Giliran ke-3: denda wajib dibayar. Kalau uang kurang, pemain harus
++        // jual/gadai dulu (atau menyerah) — jangan biarkan saldo jadi minus.
++        if (paid && player.money < RULES.JAIL_FINE) {
++          return {
++            ...state,
++            lastRoll: roll,
++            waitingFor: 'RAISE_FUNDS',
++            canRoll: false,
++            turnEnded: false,
++            pendingDebt: {
++              amount: RULES.JAIL_FINE,
++              creditorId: null,
++              kind: 'jail_fine',
++              alreadyApplied: false,
++              roll, // lemparan ini dipakai untuk jalan setelah denda lunas
++            },
++            log: addLog(
++              state.log,
++              `${player.name} wajib membayar denda penjara Rp ${fmt(RULES.JAIL_FINE)} tapi uang kurang. Jual/gadai aset dulu.`
++            ),
++          };
++        }
++
+         // Bebas — pakai freedPlayer sebagai base untuk gerak normal
+         player = { ...player, ...patch, consecutiveDoubles: newDoubles };
+       }
+@@ -525,7 +548,13 @@ const reduceGame = (state, action) => {
+ 
+       const deck = isChance ? state.chanceDeck : state.communityChestDeck;
+       const source = isChance ? CHANCE_CARDS : COMMUNITY_CHEST_CARDS;
+-      const { card, newDeck } = drawFromDeck(deck, source);
++      // Kartu Bebas Penjara yang sedang dipegang pemain jangan ikut diacak ulang
++      const jailFreeKey = isChance ? 'chance' : 'community_chest';
++      const jailFreeHeld = players.some((p) => (p.jailFreeCards?.[jailFreeKey] ?? 0) > 0);
++      const heldIds = jailFreeHeld
++        ? source.filter((c) => c.type === 'jail_free').map((c) => c.id)
++        : [];
++      const { card, newDeck } = drawFromDeck(deck, source, heldIds);
+ 
+       return {
+         ...state,
+@@ -907,6 +936,26 @@ const reduceGame = (state, action) => {
+       // Sewa / pajak → harus punya cukup uang penuh
+       if (player.money < pendingDebt.amount) return state;
+ 
++      // Denda penjara paksa → bayar ke bank (bukan Parkir Gratis), bebas,
++      // lalu lanjutkan lemparan dadu yang tertunda.
++      if (pendingDebt.kind === 'jail_fine') {
++        const freedPlayers = players.map((p, i) =>
++          i === currentPlayerIndex
++            ? { ...p, money: p.money - pendingDebt.amount, inJail: false, jailTurns: 0 }
++            : p
++        );
++        return reduceGame(
++          {
++            ...state,
++            players: freedPlayers,
++            pendingDebt: null,
++            waitingFor: null,
++            log: addLog(state.log, `${player.name} melunasi denda penjara Rp ${fmt(pendingDebt.amount)} dan bebas.`),
++          },
++          { type: ACTIONS.ROLL_DICE, rollOverride: pendingDebt.roll }
++        );
++      }
++
+       const { amount, creditorId } = pendingDebt;
+       let newPlayers = players.map((p, i) =>
+         i === currentPlayerIndex ? { ...p, money: p.money - amount } : p
+@@ -1070,26 +1119,27 @@ const reduceGame = (state, action) => {
+     // ── MUAT GAME (dari localStorage) ─────────────────────────
+     case ACTIONS.LOAD_GAME: {
+       // Ganti seluruh state dengan snapshot tersimpan (sudah tervalidasi
+-      // di pemanggil). Bersihkan flag transien agar UI tidak nyangkut.
++      // di pemanggil). Save lama tidak punya `turnState` → mulai giliran bersih.
++      const { turnState = {}, ...snapshot } = action.snapshot;
+       return {
+-        ...action.snapshot,
+-        settings: action.snapshot.settings || {
++        ...snapshot,
++        settings: snapshot.settings || {
+           map: 'nusantara',
+           startMoney: RULES.STARTING_MONEY,
+           speed: 'normal',
+           turnSeconds: null,
+         },
+-        turnStartedAt: action.snapshot.turnStartedAt ?? null,
+-        landResult: null,
+-        activeCard: null,
+-        auction: null,
+-        pendingDebt: null,
+-        pendingPayments: null,
+-        pendingTrade: null,
+-        pendingReroll: null,
+-        waitingFor: null,
+-        canRoll: true,
+-        turnEnded: false,
++        turnStartedAt: snapshot.turnStartedAt ?? null,
++        landResult: turnState.landResult ?? null,
++        activeCard: turnState.activeCard ?? null,
++        auction: turnState.auction ?? null,
++        pendingDebt: turnState.pendingDebt ?? null,
++        pendingPayments: turnState.pendingPayments ?? null,
++        pendingTrade: turnState.pendingTrade ?? null,
++        pendingReroll: turnState.pendingReroll ?? null,
++        waitingFor: turnState.waitingFor ?? null,
++        canRoll: typeof turnState.canRoll === 'boolean' ? turnState.canRoll : true,
++        turnEnded: turnState.turnEnded === true,
+       };
+     }
+ 
+diff --git a/src/logic/turnLogic.js b/src/logic/turnLogic.js
+new file mode 100644
+index 0000000..83289fa
+--- /dev/null
++++ b/src/logic/turnLogic.js
+@@ -0,0 +1,21 @@
++// ============================================================
++// turnLogic.js — Urutan giliran (fungsi pure, tanpa dependensi)
++// ============================================================
++
++/**
++ * Tentukan index pemain yang main berikutnya.
++ * - Double dan tidak masuk penjara → giliran sama (lempar lagi).
++ * - Selain itu → pemain AKTIF berikutnya setelah `currentIndex`
++ *   menurut urutan meja. `currentIndex` boleh menunjuk pemain yang
++ *   baru saja bangkrut; urutannya tetap dihitung dari posisinya,
++ *   bukan dari daftar pemain aktif (yang sudah tidak memuat dia).
++ */
++export const getNextTurn = (currentIndex, players, rolledDouble, wentToJail) => {
++  if (rolledDouble && !wentToJail) return currentIndex; // giliran lagi
++  const count = players.length;
++  for (let offset = 1; offset <= count; offset += 1) {
++    const index = (currentIndex + offset) % count;
++    if (!players[index].bankrupt) return index;
++  }
++  return currentIndex; // tidak ada pemain aktif
++};
+diff --git a/src/logic/turnLogic.test.js b/src/logic/turnLogic.test.js
+new file mode 100644
+index 0000000..c66d170
+--- /dev/null
++++ b/src/logic/turnLogic.test.js
+@@ -0,0 +1,34 @@
++import assert from 'node:assert/strict';
++import { test } from 'node:test';
++import { getNextTurn } from './turnLogic.js';
++
++const table = (bankrupt = []) =>
++  [0, 1, 2, 3].map((id) => ({ id, bankrupt: bankrupt.includes(id) }));
++
++test('giliran lanjut ke pemain berikutnya dan memutar ke awal', () => {
++  const players = table();
++  assert.equal(getNextTurn(0, players, false, false), 1);
++  assert.equal(getNextTurn(3, players, false, false), 0);
++});
++
++test('double tanpa masuk penjara memberi giliran lagi, masuk penjara tidak', () => {
++  const players = table();
++  assert.equal(getNextTurn(2, players, true, false), 2);
++  assert.equal(getNextTurn(2, players, true, true), 3);
++});
++
++test('pemain bangkrut dilewati', () => {
++  assert.equal(getNextTurn(0, table([1]), false, false), 2);
++  assert.equal(getNextTurn(0, table([1, 2]), false, false), 3);
++});
++
++test('setelah pemain tengah bangkrut, giliran ke pemain berikutnya di meja (bukan ke awal)', () => {
++  // Regresi: dulu P1/P2 bangkrut selalu melempar giliran ke P0.
++  assert.equal(getNextTurn(1, table([1]), false, false), 2);
++  assert.equal(getNextTurn(2, table([2]), false, false), 3);
++  assert.equal(getNextTurn(3, table([3]), false, false), 0);
++});
++
++test('hanya satu pemain aktif tersisa → tetap pemain itu', () => {
++  assert.equal(getNextTurn(2, table([0, 1, 3]), false, false), 2);
++});
+diff --git a/src/utils/logSound.js b/src/utils/logSound.js
+new file mode 100644
+index 0000000..4fa6b8f
+--- /dev/null
++++ b/src/utils/logSound.js
+@@ -0,0 +1,20 @@
++// ============================================================
++// logSound.js — Pilih efek suara dari teks baris log permainan
++// ============================================================
++
++const RULES = [
++  ['buy', /membeli|memenangkan lelang/i],
++  ['money', /menerima|bonus|lewat MULAI|Parkir Gratis/i],
++  ['jail', /penjara/i],
++  ['lose', /bangkrut/i],
++];
++
++/**
++ * @param {string} text — isi teks baris log (`entry.text`, bukan objeknya)
++ * @returns {'buy'|'money'|'jail'|'lose'|null}
++ */
++export const soundForLogText = (text) => {
++  if (typeof text !== 'string') return null;
++  const match = RULES.find(([, pattern]) => pattern.test(text));
++  return match ? match[0] : null;
++};
+diff --git a/src/utils/logSound.test.js b/src/utils/logSound.test.js
+new file mode 100644
+index 0000000..24cedf7
+--- /dev/null
++++ b/src/utils/logSound.test.js
+@@ -0,0 +1,21 @@
++import assert from 'node:assert/strict';
++import { test } from 'node:test';
++import { soundForLogText } from './logSound.js';
++
++test('teks log sungguhan dipetakan ke suara yang benar', () => {
++  assert.equal(soundForLogText('Budi membeli Indonesia A seharga Rp 6.000.'), 'buy');
++  assert.equal(soundForLogText('Ani memenangkan lelang Bandara Changi seharga Rp 25.000.'), 'buy');
++  assert.equal(soundForLogText('Budi lempar 3+4=7, lewat MULAI (+Rp 20.000), ke petak 2.'), 'money');
++  assert.equal(soundForLogText('Budi menerima Rp 10.000 dari bank.'), 'money');
++  assert.equal(soundForLogText('Budi dapat Parkir Gratis: Rp 15.000!'), 'money');
++  assert.equal(soundForLogText('Budi masuk Penjara!'), 'jail');
++  assert.equal(soundForLogText('Budi bangkrut dan keluar dari permainan.'), 'lose');
++});
++
++test('teks netral atau input bukan string tidak memicu suara', () => {
++  assert.equal(soundForLogText('Budi menawar Rp 7.000.'), null);
++  assert.equal(soundForLogText(''), null);
++  assert.equal(soundForLogText(undefined), null);
++  // Regresi: dulu yang diuji adalah objek log → "[object Object]" → tidak pernah cocok.
++  assert.equal(soundForLogText({ text: 'Budi membeli X', ts: 1 }), null);
++});
+diff --git a/src/utils/saveGame.js b/src/utils/saveGame.js
+index 0c0980b..510b431 100644
+--- a/src/utils/saveGame.js
++++ b/src/utils/saveGame.js
+@@ -53,6 +53,21 @@ const createPayload = (state) => ({
+     lastRoll: state.lastRoll,
+     log: state.log,
+     winner: null,
++    // State giliran yang sedang berjalan (sewa/pajak/utang/lelang/kartu yang
++    // belum selesai). Tanpa ini, memuat save di tengah giliran menghapus
++    // kewajiban pemain dan memberi lemparan dadu baru.
++    turnState: {
++      waitingFor: state.waitingFor ?? null,
++      canRoll: state.canRoll ?? true,
++      turnEnded: state.turnEnded ?? false,
++      landResult: state.landResult ?? null,
++      activeCard: state.activeCard ?? null,
++      auction: state.auction ?? null,
++      pendingDebt: state.pendingDebt ?? null,
++      pendingPayments: state.pendingPayments ?? null,
++      pendingTrade: state.pendingTrade ?? null,
++      pendingReroll: state.pendingReroll ?? null,
++    },
+   },
+ });
+ 
+diff --git a/src/utils/saveGame.test.js b/src/utils/saveGame.test.js
+index f957f35..b5b1646 100644
+--- a/src/utils/saveGame.test.js
++++ b/src/utils/saveGame.test.js
+@@ -73,3 +73,29 @@ test('manual slots reject invalid slot numbers and non-playing states', () => {
+   assert.equal(clearSaveSlot(0), false);
+   assert.equal(peekSaveSlots()[0].savedAt, undefined);
+ });
++
++test('snapshot menyimpan dan mengembalikan state giliran yang sedang berjalan', () => {
++  const midTurn = {
++    ...gameState,
++    waitingFor: 'RAISE_FUNDS',
++    canRoll: false,
++    turnEnded: false,
++    landResult: { type: 'rent', rentAmount: 5000, ownerId: 2 },
++    pendingDebt: { amount: 5000, creditorId: 2, kind: 'rent', alreadyApplied: false },
++  };
++  assert.equal(saveGameToSlot(midTurn, 1), true);
++  const loaded = loadGameFromSlot(1);
++  assert.equal(loaded.turnState.waitingFor, 'RAISE_FUNDS');
++  assert.equal(loaded.turnState.canRoll, false);
++  assert.deepEqual(loaded.turnState.pendingDebt, midTurn.pendingDebt);
++  assert.deepEqual(loaded.turnState.landResult, midTurn.landResult);
++  assert.equal(loaded.turnState.auction, null);
++});
++
++test('state di awal giliran disimpan dengan nilai bawaan yang aman', () => {
++  assert.equal(saveGameToSlot(gameState, 3), true);
++  const { turnState } = loadGameFromSlot(3);
++  assert.equal(turnState.waitingFor, null);
++  assert.equal(turnState.canRoll, true);
++  assert.equal(turnState.pendingDebt, null);
++});
+diff --git a/src/utils/shuffle.js b/src/utils/shuffle.js
+new file mode 100644
+index 0000000..6647ebb
+--- /dev/null
++++ b/src/utils/shuffle.js
+@@ -0,0 +1,18 @@
++// ============================================================
++// shuffle.js — Pengacakan seragam (Fisher–Yates)
++// Pengganti `sort(() => Math.random() - 0.5)` yang hasilnya bias.
++// ============================================================
++
++/**
++ * Kembalikan salinan `items` dengan urutan acak seragam.
++ * @param {Array} items
++ * @param {() => number} [random] — sumber acak [0,1); bisa diganti untuk tes
++ */
++export const shuffle = (items, random = Math.random) => {
++  const copy = [...items];
++  for (let i = copy.length - 1; i > 0; i -= 1) {
++    const j = Math.floor(random() * (i + 1));
++    [copy[i], copy[j]] = [copy[j], copy[i]];
++  }
++  return copy;
++};
+diff --git a/src/utils/shuffle.test.js b/src/utils/shuffle.test.js
+new file mode 100644
+index 0000000..f3b5dd5
+--- /dev/null
++++ b/src/utils/shuffle.test.js
+@@ -0,0 +1,35 @@
++import assert from 'node:assert/strict';
++import { test } from 'node:test';
++import { shuffle } from './shuffle.js';
++
++test('shuffle tidak mengubah input dan mempertahankan isi', () => {
++  const input = [1, 2, 3, 4, 5, 6];
++  const out = shuffle(input);
++  assert.deepEqual(input, [1, 2, 3, 4, 5, 6]);
++  assert.deepEqual([...out].sort(), input);
++});
++
++test('shuffle menangani array kosong dan satu elemen', () => {
++  assert.deepEqual(shuffle([]), []);
++  assert.deepEqual(shuffle(['a']), ['a']);
++});
++
++test('shuffle seragam: 6 permutasi dari 3 elemen muncul ~merata', () => {
++  const runs = 60000;
++  const counts = new Map();
++  for (let i = 0; i < runs; i += 1) {
++    const key = shuffle([0, 1, 2]).join('');
++    counts.set(key, (counts.get(key) ?? 0) + 1);
++  }
++  assert.equal(counts.size, 6);
++  const expected = runs / 6;
++  for (const [key, count] of counts) {
++    // toleransi ±5% dari ekspektasi (simpangan baku ≈ 1%)
++    assert.ok(Math.abs(count - expected) / expected < 0.05, `permutasi ${key}: ${count}`);
++  }
++});
++
++test('shuffle memakai sumber acak yang diberikan (deterministik)', () => {
++  const out = shuffle([1, 2, 3, 4], () => 0);
++  assert.deepEqual(out, [2, 3, 4, 1]);
++});
+-- 
+2.43.0
+
