@@ -1,5 +1,5 @@
 // Card effects are normalized from the supplied ZIP data for the game reducer.
-import cardData from './millionaire-cards.json';
+import cardData from './millionaire-cards.json' with { type: 'json' };
 import { shuffle } from '../utils/shuffle.js';
 
 const ACTION_TYPES = {

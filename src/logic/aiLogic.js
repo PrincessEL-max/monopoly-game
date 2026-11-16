@@ -7,9 +7,10 @@
 //   'hard'   → kalkulasi ROI, monopoli, blokir lawan
 // ============================================================
 
-import { getKomplexSquares, getSquaresForMap, ownsFullKomplex } from '../constants/squares';
-import { RULES } from '../constants/config';
-import { calcNetWorth } from './rentLogic';
+import { getKomplexSquares, getSquaresForMap, ownsFullKomplex } from '../constants/squares.js';
+import { RULES } from '../constants/config.js';
+import { calcNetWorth } from './rentLogic.js';
+import { canBuildHouse, canBuildHotel, canMortgage } from './propertyRules.js';
 
 // ─────────────────────────────────────────────────────────────
 // KONSTANTA STRATEGI
@@ -115,7 +116,7 @@ const evaluatePurchase = (player, square, gameState, difficulty) => {
  * Return array of squareId yang akan dibangun (urutan prioritas)
  */
 export const aiDecideBuild = (aiPlayer, gameState, difficulty = 'medium') => {
-  const { owners, houses, hotels, housesLeft, hotelsLeft } = gameState;
+  const { owners, houses, hotels } = gameState;
   const squares = getSquaresForMap(gameState.settings?.map);
   const buffer = SAFETY_BUFFER[difficulty];
   let budget = aiPlayer.money - buffer;
@@ -140,10 +141,13 @@ export const aiDecideBuild = (aiPlayer, gameState, difficulty = 'medium') => {
       if (hotels[sq.id] >= 1) continue; // sudah hotel
       const houseCount = houses[sq.id] || 0;
 
-      if (houseCount < 4 && housesLeft > 0 && budget >= sq.houseCost) {
+      // Hanya usulkan bangunan yang sah menurut aturan reducer (set penuh,
+      // tanpa gadai, bangun merata, hotel hanya jika semua petak siap).
+      // Uang dihitung lewat `budget` (sudah dikurangi cadangan aman).
+      if (houseCount < 4 && budget >= sq.houseCost && canBuildHouse(aiPlayer, sq.id, gameState, { ignoreMoney: true })) {
         buildQueue.push({ squareId: sq.id, type: 'house', cost: sq.houseCost });
         budget -= sq.houseCost;
-      } else if (houseCount === 4 && hotelsLeft > 0 && budget >= sq.hotelCost) {
+      } else if (houseCount === 4 && budget >= sq.hotelCost && canBuildHotel(aiPlayer, sq.id, gameState, { ignoreMoney: true })) {
         buildQueue.push({ squareId: sq.id, type: 'hotel', cost: sq.hotelCost });
         budget -= sq.hotelCost;
       }
@@ -171,12 +175,10 @@ export const aiDecideBuild = (aiPlayer, gameState, difficulty = 'medium') => {
  * Return array squareId yang akan digadai (prioritas: paling murah dulu)
  */
 export const aiDecideMortgage = (aiPlayer, amountNeeded, gameState) => {
-  const { owners, houses, hotels } = gameState;
+  // Hanya yang benar-benar boleh digadai: tidak ada bangunan di set warna yang
+  // sama (sebelumnya hanya cek petak itu sendiri → gadai ditolak → AI macet).
   const myProps = getSquaresForMap(gameState.settings?.map).filter(
-    (s) => owners[s.id] === aiPlayer.id &&
-           !(aiPlayer.mortgaged || []).includes(s.id) &&
-           (houses[s.id] || 0) === 0 &&
-           (hotels[s.id] || 0) === 0
+    (s) => canMortgage(aiPlayer, s.id, gameState)
   );
 
   // Gadai properti murah dulu, simpan yang berharga

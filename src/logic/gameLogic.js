@@ -10,10 +10,12 @@ import {
 import { RULES, SPECIAL_POSITIONS } from '../constants/config.js';
 import { shuffleDeck, CHANCE_CARDS, COMMUNITY_CHEST_CARDS } from '../constants/cards.js';
 import { calculateRent } from './rentLogic.js';
+import { canBuyProperty, canBuildHouse, canBuildHotel, canMortgage } from './propertyRules.js';
 import { calcNewPosition, findNearest, positionComesAfter } from './routeLogic.js';
 import { getNextTurn } from './turnLogic.js';
 
 export { calcNewPosition, findNearest, positionComesAfter, getNextTurn };
+export { canBuyProperty, canBuildHouse, canBuildHotel, canMortgage };
 
 // ─────────────────────────────────────────────────────────────
 // DICE
@@ -109,15 +111,19 @@ export const payJailFine = (player) => {
 /**
  * Gunakan kartu bebas penjara
  */
-export const useJailFreeCard = (player, cardSource) => ({
-  ...player,
-  inJail: false,
-  jailTurns: 0,
-  jailFreeCards: {
-    ...player.jailFreeCards,
-    [cardSource]: player.jailFreeCards[cardSource] - 1,
-  },
-});
+export const useJailFreeCard = (player, cardSource) => {
+  // Harus sedang di penjara dan benar-benar punya kartunya
+  if (!player.inJail || !((player.jailFreeCards?.[cardSource] ?? 0) > 0)) return null;
+  return {
+    ...player,
+    inJail: false,
+    jailTurns: 0,
+    jailFreeCards: {
+      ...player.jailFreeCards,
+      [cardSource]: player.jailFreeCards[cardSource] - 1,
+    },
+  };
+};
 
 // ─────────────────────────────────────────────────────────────
 // LANDING — apa yang terjadi saat pemain berhenti di petak
@@ -209,7 +215,8 @@ export const drawCard = (deck, sourceCards) => {
  * Return updated player atau null jika tidak cukup uang
  */
 export const buyProperty = (player, square, gameState) => {
-  if (player.money < square.price) return null;
+  // Harus petak yang bisa dibeli, belum dimiliki siapa pun, dan uang cukup
+  if (!canBuyProperty(player, square, gameState)) return null;
 
   return {
     playerPatch: { money: player.money - square.price },
@@ -222,13 +229,8 @@ export const buyProperty = (player, square, gameState) => {
  * Return { playerPatch, mortgagedPatch } atau null
  */
 export const mortgageProperty = (player, squareId, gameState) => {
-  const squares = getSquaresForMap(gameState.settings?.map);
-  const square = squares.find((s) => s.id === squareId);
-  if (!square || gameState.owners[squareId] !== player.id) return null;
-  if ((player.mortgaged || []).includes(squareId)) return null;
-  if (square.komplex && getKomplexSquares(square.komplex, squares).some(
-    (s) => (gameState.houses[s.id] || 0) > 0 || (gameState.hotels[s.id] || 0) > 0
-  )) return null;
+  if (!canMortgage(player, squareId, gameState)) return null;
+  const square = getSquaresForMap(gameState.settings?.map).find((s) => s.id === squareId);
 
   const mortgageValue = Math.floor(square.price * RULES.MORTGAGE_RATE);
   return {
@@ -262,16 +264,11 @@ export const unmortgageProperty = (player, squareId, gameState) => {
  * Return patch atau null jika syarat tidak terpenuhi
  */
 export const buyHouse = (player, squareId, gameState, { free = false } = {}) => {
-  const { owners, houses, hotels, housesLeft, hotelsLeft } = gameState;
-  const squares = getSquaresForMap(gameState.settings?.map);
-  const square = squares.find((s) => s.id === squareId);
-
-  if (!square || owners[squareId] !== player.id) return null;
-  if (hotels[squareId] > 0) return null; // sudah ada hotel
-  if ((houses[squareId] || 0) >= 4) return null; // harus beli hotel
-  if (housesLeft <= 0) return null; // stok habis
+  const { houses, housesLeft } = gameState;
+  // Set warna penuh, tanpa gadai, bangun merata, stok & uang cukup
+  if (!canBuildHouse(player, squareId, gameState, { free })) return null;
+  const square = getSquaresForMap(gameState.settings?.map).find((s) => s.id === squareId);
   const cost = free ? 0 : square.houseCost;
-  if (player.money < cost) return null;
 
   return {
     playerPatch: { money: player.money - cost },
@@ -284,15 +281,10 @@ export const buyHouse = (player, squareId, gameState, { free = false } = {}) => 
  * Beli hotel (butuh 4 rumah)
  */
 export const buyHotel = (player, squareId, gameState) => {
-  const { owners, houses, hotels, housesLeft, hotelsLeft } = gameState;
-  const squares = getSquaresForMap(gameState.settings?.map);
-  const square = squares.find((s) => s.id === squareId);
-
-  if (!square || owners[squareId] !== player.id) return null;
-  if ((houses[squareId] || 0) < RULES.MIN_HOUSES_FOR_HOTEL) return null;
-  if ((hotels[squareId] || 0) >= 1) return null;
-  if (hotelsLeft <= 0) return null;
-  if (player.money < square.hotelCost) return null;
+  const { housesLeft, hotelsLeft } = gameState;
+  // Set penuh, semua petak sudah 4 rumah/hotel, tanpa gadai, stok & uang cukup
+  if (!canBuildHotel(player, squareId, gameState)) return null;
+  const square = getSquaresForMap(gameState.settings?.map).find((s) => s.id === squareId);
 
   return {
     playerPatch: { money: player.money - square.hotelCost },

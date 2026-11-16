@@ -224,6 +224,10 @@ const reduceGame = (state, action) => {
       let player = players[currentPlayerIndex];
       if (state.phase !== 'playing') return state;
       if (state.waitingFor) return state; // sedang tunggu aksi pemain
+      // Hanya boleh melempar sekali per giliran. `rollOverride` dipakai
+      // pemanggilan internal (reroll, pelunasan denda penjara) — klien tidak
+      // boleh mengirimnya (ditolak di validateAction server).
+      if (!state.canRoll && action.rollOverride == null) return state;
 
       const effects = { ...EMPTY_POWER_UP_EFFECTS, ...player.powerUpEffects };
       const hasReroll = effects.rerollReady;
@@ -407,6 +411,8 @@ const reduceGame = (state, action) => {
       const player = players[currentPlayerIndex];
       const square = getSquaresForMap(state.settings?.map).find((s) => s.id === action.squareId);
       if (!square) return state;
+      // Hanya boleh membeli petak yang sedang ditawarkan setelah mendarat
+      if (state.waitingFor !== 'BUY_DECISION' || state.landResult?.square?.id !== square.id) return state;
 
       const effects = { ...EMPTY_POWER_UP_EFFECTS, ...player.powerUpEffects };
       const price = effects.discountNextBuy ? Math.floor(square.price / 2) : square.price;
@@ -437,6 +443,7 @@ const reduceGame = (state, action) => {
     // ── TOLAK BELI / LELANG ───────────────────────────────────
     // ── TOLAK BELI → LELANG ───────────────────────────────────
     case ACTIONS.DECLINE_BUY: {
+      if (state.waitingFor !== 'BUY_DECISION') return state;
       const { currentPlayerIndex, players, landResult } = state;
       const square = landResult?.square;
       if (!square) {
@@ -457,6 +464,7 @@ const reduceGame = (state, action) => {
 
     // ── BAYAR SEWA ────────────────────────────────────────────
     case ACTIONS.PAY_RENT: {
+      if (state.waitingFor !== 'PAY_RENT' || !state.landResult) return state;
       const { currentPlayerIndex, players } = state;
       const player = players[currentPlayerIndex];
       const { rentAmount, ownerId } = state.landResult;
@@ -499,6 +507,7 @@ const reduceGame = (state, action) => {
 
     // ── BAYAR PAJAK ───────────────────────────────────────────
     case ACTIONS.PAY_TAX: {
+      if (state.waitingFor !== 'PAY_TAX') return state;
       const { currentPlayerIndex, players, landResult, freeParkingPool } = state;
       const player = players[currentPlayerIndex];
       const amount = landResult?.taxAmount ?? 0;
@@ -543,6 +552,8 @@ const reduceGame = (state, action) => {
 
     // ── TARIK KARTU ───────────────────────────────────────────
     case ACTIONS.DRAW_CARD: {
+      // Kartu hanya ditarik saat mendarat di Kesempatan / Dana Umum
+      if (state.waitingFor !== 'DRAW_CARD') return state;
       const { currentPlayerIndex, players, landResult } = state;
       const isChance = landResult?.square?.type === 'chance';
 
@@ -570,7 +581,7 @@ const reduceGame = (state, action) => {
     // ── TERAPKAN KARTU ────────────────────────────────────────
     case ACTIONS.APPLY_CARD: {
       const { currentPlayerIndex, activeCard } = state;
-      if (!activeCard) return state;
+      if (!activeCard || state.waitingFor !== 'APPLY_CARD') return state;
 
       const patch = applyCard(activeCard, state, currentPlayerIndex);
       let newState = { ...state, ...patch, activeCard: null, canRoll: false, turnEnded: false };
@@ -722,6 +733,7 @@ const reduceGame = (state, action) => {
     case ACTIONS.PAY_JAIL_FINE: {
       const { currentPlayerIndex, players } = state;
       const player = players[currentPlayerIndex];
+      if (!player.inJail || !state.canRoll || state.waitingFor) return state;
       if (player.powerUpEffects?.insurance) {
         return {
           ...state,
@@ -754,7 +766,9 @@ const reduceGame = (state, action) => {
     case ACTIONS.USE_JAIL_FREE_CARD: {
       const { currentPlayerIndex, players } = state;
       const player = players[currentPlayerIndex];
+      if (!state.canRoll || state.waitingFor) return state;
       const updated = useJailFreeCard(player, action.source);
+      if (!updated) return state; // tidak di penjara / tidak punya kartu
 
       return {
         ...state,
@@ -880,10 +894,10 @@ const reduceGame = (state, action) => {
     // ── LELANG: TAWAR ─────────────────────────────────────────
     case ACTIONS.AUCTION_BID: {
       const a = state.auction;
-      if (!a) return state;
+      if (!a || state.waitingFor !== 'AUCTION') return state;
       const bidder = state.players.find((p) => p.id === a.currentBidderId);
       const amount = Math.floor(action.amount);
-      if (!bidder || amount <= a.highestBid || amount > bidder.money) return state;
+      if (!bidder || !Number.isFinite(amount) || amount <= a.highestBid || amount > bidder.money) return state;
 
       const idx = a.remaining.indexOf(a.currentBidderId);
       const next = a.remaining[(idx + 1) % a.remaining.length];
@@ -898,7 +912,7 @@ const reduceGame = (state, action) => {
     // ── LELANG: PASS ──────────────────────────────────────────
     case ACTIONS.AUCTION_PASS: {
       const a = state.auction;
-      if (!a) return state;
+      if (!a || state.waitingFor !== 'AUCTION') return state;
       const passer = state.players.find((p) => p.id === a.currentBidderId);
       const idx = a.remaining.indexOf(a.currentBidderId);
       const remaining = a.remaining.filter((id) => id !== a.currentBidderId);
@@ -990,12 +1004,14 @@ const reduceGame = (state, action) => {
 
     // ── TRADE ─────────────────────────────────────────────────
     case ACTIONS.PROPOSE_TRADE: {
+      // Hanya saat tidak ada kewajiban tertunda, dan tawaran harus sah
+      if (state.waitingFor || !isValidTradeOffer(state, action.offer)) return state;
       return { ...state, pendingTrade: action.offer, waitingFor: 'TRADE_RESPONSE' };
     }
 
     case ACTIONS.ACCEPT_TRADE: {
       const { pendingTrade, players, owners } = state;
-      if (!pendingTrade) return state;
+      if (!pendingTrade || state.waitingFor !== 'TRADE_RESPONSE') return state;
 
       const fromPlayer = players.find((p) => p.id === pendingTrade.from);
       const toPlayer   = players.find((p) => p.id === pendingTrade.to);
@@ -1066,6 +1082,7 @@ const reduceGame = (state, action) => {
     }
 
     case ACTIONS.REJECT_TRADE: {
+      if (state.waitingFor !== 'TRADE_RESPONSE') return state;
       return { ...state, pendingTrade: null, waitingFor: null };
     }
 
@@ -1082,6 +1099,9 @@ const reduceGame = (state, action) => {
 
     // ── END TURN ──────────────────────────────────────────────
     case ACTIONS.END_TURN: {
+      // Giliran baru boleh diakhiri setelah melempar dan semua kewajiban
+      // (sewa, pajak, kartu, utang, lelang, tawaran) selesai.
+      if (state.phase !== 'playing' || state.waitingFor || state.canRoll) return state;
       const { currentPlayerIndex, players, lastRoll, owners } = state;
       const rolledDouble = lastRoll?.isDouble ?? false;
       const currentPlayer = players[currentPlayerIndex];
@@ -1148,6 +1168,7 @@ const reduceGame = (state, action) => {
 
     // ── DISMISS MODAL ─────────────────────────────────────────
     case ACTIONS.DISMISS_MODAL: {
+      if (state.waitingFor) return state; // jangan hapus kewajiban yang tertunda
       return { ...state, landResult: null, activeCard: null, waitingFor: null };
     }
 
@@ -1176,6 +1197,24 @@ export const reducer = (state, action) => {
 // ─────────────────────────────────────────────────────────────
 // HELPER — tentukan waitingFor dari landResult
 // ─────────────────────────────────────────────────────────────
+
+// Tawaran trade sah: pihak ada & aktif, bukan diri sendiri, properti benar-benar
+// dimiliki masing-masing, jumlah uang bilangan bulat >= 0. (Kecukupan saldo
+// dicek saat ACCEPT_TRADE.)
+const isValidTradeOffer = (state, offer) => {
+  if (!offer || typeof offer !== 'object') return false;
+  const { players, owners, currentPlayerIndex } = state;
+  const from = players.find((p) => p.id === offer.from);
+  const to = players.find((p) => p.id === offer.to);
+  if (!from || !to || from.bankrupt || to.bankrupt || from.id === to.id) return false;
+  if (from.id !== players[currentPlayerIndex]?.id) return false;
+  const validIds = (ids, ownerId) =>
+    Array.isArray(ids) && new Set(ids).size === ids.length &&
+    ids.every((id) => Number.isInteger(id) && owners[id] === ownerId);
+  if (!validIds(offer.offeredProps ?? [], from.id) || !validIds(offer.requestedProps ?? [], to.id)) return false;
+  const validMoney = (n) => Number.isSafeInteger(n) && n >= 0;
+  return validMoney(offer.offeredMoney) && validMoney(offer.requestedMoney);
+};
 
 const resolveWaitingFor = (landResult) => {
   if (!landResult) return null;

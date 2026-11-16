@@ -136,7 +136,7 @@ export const startPieceRenderer = () => {
   rendererPromise = new Promise((resolve, reject) => {
     let renderer;
     try {
-      renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+      renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'low-power' });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
       renderer.outputColorSpace = THREE.SRGBColorSpace;
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -185,13 +185,43 @@ export const startPieceRenderer = () => {
       updateRenderRoot();
       window.addEventListener('resize', resize);
 
+      // ── Loop gambar terkontrol ───────────────────────────────
+      // Dulu: rAF berjalan selamanya dan TIAP frame memanggil querySelectorAll,
+      // getBoundingClientRect, serta getComputedStyle untuk semua leluhur semua
+      // bidak (ratusan kalkulasi style per detik di main thread).
+      // Sekarang: daftar bidak di-cache (di-refresh lewat MutationObserver),
+      // style leluhur di-cache 1 detik, dan loop berhenti saat tab tersembunyi
+      // atau tidak ada bidak. Resolusi, kualitas, dan ~30 fps tetap sama.
+      const FRAME_MS = 33;
+      const CLIP_REFRESH_MS = 1000;
+      let frameId = null;
       let previousFrame = 0;
-      const draw = (timestamp) => {
-        requestAnimationFrame(draw);
-        if (timestamp - previousFrame < 33) return;
-        previousFrame = timestamp;
-        updateRenderRoot();
+      let elements = [];
+      let listDirty = true;
+      const clipCache = new WeakMap();
 
+      // Leluhur yang memotong (overflow ≠ visible) — jarang berubah, cukup dicek 1×/detik
+      const getClipAncestors = (element, now) => {
+        const cached = clipCache.get(element);
+        if (cached && cached.root === renderRoot && now - cached.at < CLIP_REFRESH_MS) {
+          return cached.ancestors;
+        }
+        const ancestors = [];
+        for (
+          let ancestor = element.parentElement;
+          ancestor && ancestor !== renderRoot;
+          ancestor = ancestor.parentElement
+        ) {
+          const style = window.getComputedStyle(ancestor);
+          const clipX = style.overflowX !== 'visible';
+          const clipY = style.overflowY !== 'visible';
+          if (clipX || clipY) ancestors.push({ node: ancestor, clipX, clipY });
+        }
+        clipCache.set(element, { ancestors, root: renderRoot, at: now });
+        return ancestors;
+      };
+
+      const renderFrame = (timestamp) => {
         const rootWidth = renderRoot === document.body ? window.innerWidth : renderRoot.clientWidth;
         const rootHeight = renderRoot === document.body ? window.innerHeight : renderRoot.clientHeight;
         const rootBounds = renderRoot === document.body
@@ -206,7 +236,15 @@ export const startPieceRenderer = () => {
           : renderRoot.getBoundingClientRect();
         const scaleX = rootBounds.width / Math.max(1, rootWidth);
         const scaleY = rootBounds.height / Math.max(1, rootHeight);
-        const elements = document.querySelectorAll('.piece-model[data-piece]');
+        const frameRects = new Map(); // rect leluhur dibagi antar bidak dalam 1 frame
+        const rectOf = (node) => {
+          let rect = frameRects.get(node);
+          if (!rect) {
+            rect = node.getBoundingClientRect();
+            frameRects.set(node, rect);
+          }
+          return rect;
+        };
         renderer.setScissorTest(false);
         renderer.clear(true, true, true);
         renderer.setScissorTest(true);
@@ -221,23 +259,17 @@ export const startPieceRenderer = () => {
             right: Math.min(rootBounds.right, elementRect.right),
             bottom: Math.min(rootBounds.bottom, elementRect.bottom),
           };
-          for (
-            let ancestor = element.parentElement;
-            ancestor && ancestor !== renderRoot;
-            ancestor = ancestor.parentElement
-          ) {
-            const style = window.getComputedStyle(ancestor);
-            if (style.overflowX === 'visible' && style.overflowY === 'visible') continue;
-            const clip = ancestor.getBoundingClientRect();
-            if (style.overflowX !== 'visible') {
+          getClipAncestors(element, timestamp).forEach(({ node, clipX, clipY }) => {
+            const clip = rectOf(node);
+            if (clipX) {
               visibleRect.left = Math.max(visibleRect.left, clip.left);
               visibleRect.right = Math.min(visibleRect.right, clip.right);
             }
-            if (style.overflowY !== 'visible') {
+            if (clipY) {
               visibleRect.top = Math.max(visibleRect.top, clip.top);
               visibleRect.bottom = Math.min(visibleRect.bottom, clip.bottom);
             }
-          }
+          });
           if (
             visibleRect.right <= visibleRect.left ||
             visibleRect.bottom <= visibleRect.top ||
@@ -275,7 +307,39 @@ export const startPieceRenderer = () => {
         });
         renderer.setScissorTest(false);
       };
-      requestAnimationFrame(draw);
+
+      const schedule = () => {
+        if (frameId === null) frameId = requestAnimationFrame(tick);
+      };
+
+      function tick(timestamp) {
+        frameId = null;
+        if (document.hidden) return; // dilanjutkan oleh 'visibilitychange'
+        if (listDirty) {
+          updateRenderRoot();
+          elements = Array.from(document.querySelectorAll('.piece-model[data-piece]'));
+          listDirty = false;
+        }
+        if (elements.length === 0) {
+          // Tidak ada bidak di layar: bersihkan canvas lalu diam sampai ada yang muncul
+          renderer.setScissorTest(false);
+          renderer.clear(true, true, true);
+          return;
+        }
+        schedule();
+        if (timestamp - previousFrame < FRAME_MS) return;
+        previousFrame = timestamp;
+        renderFrame(timestamp);
+      }
+
+      new MutationObserver(() => {
+        listDirty = true;
+        schedule();
+      }).observe(document.body, { childList: true, subtree: true });
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) schedule();
+      });
+      schedule();
       resolve();
     } catch (error) {
       renderer?.dispose();
