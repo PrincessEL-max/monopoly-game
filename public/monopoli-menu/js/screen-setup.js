@@ -2,11 +2,20 @@
 /* ================= LAYAR PERSIAPAN PERMAINAN ================= */
 const SL=[[25,208],[246,209],[468,207],[688,197]], ST=89, SH=454;
 const CARD=['card1','card2','card3','card2'], COL=['#8a3d00','#0b3a8a','#0d5a14','#4a1b8a'];
+const PIECES=[
+  {id:'pesawat',label:'Pesawat',asset:'pawn_pesawat'},
+  {id:'mobil',label:'Mobil',asset:'pawn_mobil'},
+  {id:'kapal',label:'Kapal',asset:'pawn_kapal'},
+  {id:'topi',label:'Topi',asset:'pawn_topi'},
+  {id:'anjing',label:'Anjing',asset:'pawn_anjing'},
+  {id:'pion',label:'Pion klasik',asset:'pawn_pion'},
+];
+const PLAYER_COLORS=['#e53935','#1e88e5','#43a047','#fdd835','#8e24aa','#f4511e'];
 const DIFF=['Mudah','Sedang','Sulit'], DC={Mudah:['#9bea3b','#27a824'],Sedang:['#38b6ff','#1262d8'],Sulit:['#ffb347','#e8590c']};
 const MAPS=[{id:'nusantara',n:'Peta Nusantara',f:'none'},{id:'dunia',n:'Peta Dunia',f:'hue-rotate(150deg) saturate(1.15)'},{id:'kota',n:'Peta Kota',f:'hue-rotate(-55deg) saturate(1.1)'},{id:'nusantara-compact',n:'Peta Nusantara Ringkas',f:'hue-rotate(12deg) saturate(.95)'}];
-const setup={slots:[{t:'human'},{t:'bot',d:'Sedang'},null,null], map:0, money:150000, speed:'normal'};
+const setup={slots:[{t:'human',piece:'pesawat'},{t:'bot',d:'Sedang',piece:'mobil'},null,null], map:0, money:150000, speed:'normal'};
 const MONEYS=[150000,200000,250000,300000,400000,500000];
-function getSetup(){ return { mode:'offline', players:setup.slots.map((p,i)=>p&&{slot:i+1,type:p.t,difficulty:p.d||null}).filter(Boolean),
+function getSetup(){ return { mode:'offline', players:setup.slots.map((p,i)=>p&&{slot:i+1,type:p.t,difficulty:p.d||null,piece:p.piece}).filter(Boolean),
   map:MAPS[setup.map].id, mapName:MAPS[setup.map].n, startMoney:setup.money, speed:setup.speed }; }
 GameMenu.getSetup = getSetup;
 function renderSlots(pop){
@@ -17,6 +26,15 @@ function renderSlots(pop){
     const im=new Image(); im.alt=''; im.src=ASSETS[p?CARD[i]:'card4']; if(p&&i===3) im.style.filter='hue-rotate(70deg)'; d.appendChild(im);
     if(p){
       d.insertAdjacentHTML('beforeend',`<div class="tx nm" style="--sc:${COL[i]}">Pemain ${i+1}<br>${p.t==='human'?'(Anda)':'(Bot)'}</div>`);
+      const picker=document.createElement('div'); picker.className='piece-picker'; picker.setAttribute('role','group'); picker.setAttribute('aria-label','Pilih pion Pemain '+(i+1));
+      PIECES.forEach(({id,label,asset})=>{
+        const b=document.createElement('button'); b.type='button'; b.className='pawn-pick'+(p.piece===id?' on':'');
+        b.title=label; b.setAttribute('aria-label','Pilih pion '+label+' untuk Pemain '+(i+1)); b.setAttribute('aria-pressed',String(p.piece===id));
+        b.style.setProperty('--pawn-color',PLAYER_COLORS[i]);
+        const icon=document.createElement('span'); icon.className='pawn-icon'; icon.style.setProperty('--pawn-mask',`url("${ASSETS[asset]}")`); b.appendChild(icon);
+        b.onclick=e=>{e.stopPropagation(); p.piece=id; sfx(520); renderSlots(i)}; picker.appendChild(b);
+      });
+      d.appendChild(picker);
       if(p.t==='bot'){
         const b=document.createElement('button'); b.className='tx pill'; b.textContent=p.d; b.setAttribute('aria-label','Tingkat kesulitan bot: '+p.d);
         b.style.background=`linear-gradient(${DC[p.d][0]},${DC[p.d][1]})`; b.style.setProperty('--sc','#10284f');
@@ -26,7 +44,7 @@ function renderSlots(pop){
         r.onclick=()=>{setup.slots[i]=null; sfx(260); renderSlots()}; d.appendChild(r); }
     } else {
       d.tabIndex=0; d.setAttribute('role','button'); d.setAttribute('aria-label','Tambah pemain '+(i+1));
-      const add=()=>{setup.slots[i]={t:'bot',d:['Sedang','Mudah','Sedang','Sulit'][i]}; sfx(720); renderSlots(i)};
+      const add=()=>{setup.slots[i]={t:'bot',d:['Sedang','Mudah','Sedang','Sulit'][i],piece:PIECES[i].id}; sfx(720); renderSlots(i)};
       d.onclick=add; d.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();add()}};
     }
     box.appendChild(d);

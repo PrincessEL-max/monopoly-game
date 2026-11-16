@@ -5,6 +5,14 @@ import '../../styles/game-menu-frame.css';
 const CHANNEL = 'monopoli-game-menu';
 const OUTBOUND_CHANNEL = 'monopoli-game-app';
 const DIFFICULTIES = { Mudah: 'easy', Sedang: 'medium', Sulit: 'hard' };
+const PAWN_PIECES = {
+  pesawat: '🚀',
+  mobil: '🚗',
+  kapal: '⚓',
+  topi: '🎩',
+  anjing: '🐶',
+  pion: '💎',
+};
 const MULTIPLAYER_MESSAGE_TYPES = new Set([
   'online', 'quick', 'quickcancel', 'quickfound', 'create', 'join',
   'roominvite', 'roombot', 'roomremove', 'disband', 'invite',
@@ -134,7 +142,7 @@ export default function GameMenuFrame({
           if (detail?.mode === 'offline') {
             const players = detail.players.map((player, index) => ({
               name: `Pemain ${player.slot || index + 1}`,
-              piece: PLAYER_CONFIG.PIECE_ICONS[(player.slot || index + 1) - 1],
+              piece: PAWN_PIECES[player.piece] || PLAYER_CONFIG.PIECE_ICONS[(player.slot || index + 1) - 1],
               isAI: player.type === 'bot',
               difficulty: DIFFICULTIES[player.difficulty] || 'medium',
             }));
